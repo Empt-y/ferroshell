@@ -1,8 +1,13 @@
 id = "org.ferroshell.clock"
 name = "Digital Clock"
-description = "Time and date."
-version = "1.0.0"
+description = "Time and date. Click for a calendar."
+version = "1.1.0"
 api = 1
+
+[popup]
+file = "popup.slint"
+width = 330
+height = 400
 
 [config.format]
 type = "string"
@@ -20,3 +25,16 @@ type = "bool"
 default = true
 label = "Show date"
 description = "Shown below the time when the panel is thick enough."
+
+[config.first-day]
+type = "enum"
+default = "monday"
+options = ["monday", "sunday"]
+scope = "popup"
+label = "Calendar: first day of the week"
+
+[config.week-numbers]
+type = "bool"
+default = true
+scope = "popup"
+label = "Calendar: show week numbers"

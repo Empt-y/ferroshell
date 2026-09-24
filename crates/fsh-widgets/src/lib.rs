@@ -13,5 +13,5 @@ pub mod theme_binding;
 
 pub use assets::Layout;
 pub use composer::{Composer, PanelSpec, WidgetStatus};
-pub use manifest::{ConfigField, FieldKind, Manifest};
+pub use manifest::{ConfigField, FieldKind, Manifest, PopupSpec, Scope};
 pub use registry::{Origin, Registry, WidgetPackage};

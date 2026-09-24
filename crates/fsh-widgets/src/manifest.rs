@@ -27,6 +27,42 @@ pub struct Manifest {
     /// Optional out-of-process plugin, run once per widget package.
     #[serde(default)]
     pub plugin: Option<PluginSpec>,
+    /// Optional popup (an applet's detail view), opened from the widget.
+    #[serde(default)]
+    pub popup: Option<PopupSpec>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case")]
+pub struct PopupSpec {
+    /// Slint file in the widget folder exporting a component named `Popup`.
+    #[serde(default = "default_popup")]
+    pub file: String,
+    /// Size in logical pixels.
+    #[serde(default = "default_popup_width")]
+    pub width: u32,
+    #[serde(default = "default_popup_height")]
+    pub height: u32,
+}
+
+fn default_popup() -> String {
+    "popup.slint".into()
+}
+fn default_popup_width() -> u32 {
+    360
+}
+fn default_popup_height() -> u32 {
+    440
+}
+
+/// Which component a setting is passed to.
+#[derive(Debug, Clone, Copy, Default, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum Scope {
+    #[default]
+    Widget,
+    Popup,
+    Both,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]
@@ -63,7 +99,7 @@ fn default_memory() -> u64 {
 impl Manifest {
     /// Widgets with a script or plugin get an `instance-id` property to namespace their data.
     pub fn wants_instance_id(&self) -> bool {
-        self.script.is_some() || self.plugin.is_some()
+        self.script.is_some() || self.plugin.is_some() || self.popup.is_some()
     }
 }
 
@@ -83,6 +119,19 @@ pub struct ConfigField {
     /// the widget's Slint properties, so changing them doesn't rebuild the panel.
     #[serde(default = "yes")]
     pub ui: bool,
+    /// For widgets with a popup: pass this setting to the widget (default), the popup,
+    /// or both. Each component must declare the settings it receives.
+    #[serde(default)]
+    pub scope: Scope,
+}
+
+impl ConfigField {
+    pub fn for_widget(&self) -> bool {
+        self.ui && matches!(self.scope, Scope::Widget | Scope::Both)
+    }
+    pub fn for_popup(&self) -> bool {
+        self.ui && matches!(self.scope, Scope::Popup | Scope::Both)
+    }
 }
 
 fn yes() -> bool {

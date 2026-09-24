@@ -34,7 +34,6 @@ pub fn invoke(action: &str, arg: &str) {
         }
         "launch" if !arg.is_empty() => launch(arg.to_owned()),
         "settings" => spawn_sibling("fsh-settings.exe", &[]),
-        "calendar" => {}
         other => tracing::warn!("unknown action `{other}`"),
     }
 }

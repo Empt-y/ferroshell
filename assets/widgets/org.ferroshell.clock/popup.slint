@@ -1,0 +1,113 @@
+import { Shell, Theme, CalendarDay } from "@ferroshell/api.slint";
+import { Label, DimLabel } from "@ferroshell/controls.slint";
+
+component NavButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    width: 30px;
+    height: 30px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : transparent;
+    Text {
+        text: root.text;
+        color: Theme.foreground;
+        font-size: Theme.font-size * 1.2;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component Popup inherits Rectangle {
+    in property <string> instance-id;
+    in property <string> first-day: "monday";
+    in property <bool> week-numbers: true;
+
+    property <int> this-year: Shell.format-time(Shell.now, "%Y").to-float();
+    property <int> this-month: Shell.format-time(Shell.now, "%m").to-float();
+    // Months away from the current one (changed by the arrows).
+    property <int> offset: 0;
+    property <int> shown: root.this-year * 12 + root.this-month - 1 + root.offset;
+    property <int> year: floor(root.shown / 12);
+    property <int> month: mod(root.shown, 12) + 1;
+    property <bool> monday-first: root.first-day != "sunday";
+    property <[CalendarDay]> days: Shell.calendar(root.year, root.month, root.monday-first, Shell.now);
+    property <[string]> weekday-names: root.monday-first
+        ? ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+        : ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+    property <length> cell: (root.width - 32px - (root.week-numbers ? 28px : 0px)) / 7;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+
+        // Now.
+        Text {
+            text: Shell.format-time(Shell.now, "%H:%M:%S");
+            color: Theme.foreground;
+            font-size: Theme.font-size * 2.4;
+            font-weight: 300;
+        }
+        DimLabel { text: Shell.format-time(Shell.now, "%A %e %B %Y"); }
+
+        // Month navigation.
+        HorizontalLayout {
+            spacing: 4px;
+            Label {
+                text: Shell.month-title(root.year, root.month);
+                font-weight: 600;
+                horizontal-stretch: 1;
+            }
+            if root.offset != 0: NavButton { text: "•"; clicked => { root.offset = 0; } }
+            NavButton { text: "‹"; clicked => { root.offset -= 1; } }
+            NavButton { text: "›"; clicked => { root.offset += 1; } }
+        }
+
+        // Weekday header.
+        HorizontalLayout {
+            if root.week-numbers: Rectangle { width: 28px; }
+            for name in root.weekday-names: Text {
+                width: root.cell;
+                text: name;
+                color: Theme.foreground-dim;
+                font-size: Theme.font-size * 0.85;
+                horizontal-alignment: center;
+            }
+        }
+
+        // The grid: 6 rows of 7 days.
+        Rectangle {
+            height: 6 * root.cell;
+            for d[i] in root.days: Rectangle {
+                x: (root.week-numbers ? 28px : 0px) + mod(i, 7) * root.cell;
+                y: floor(i / 7) * root.cell;
+                width: root.cell;
+                height: root.cell;
+                border-radius: self.width / 2;
+                background: d.today ? Theme.accent : day-touch.has-hover ? Theme.hover : transparent;
+                day-touch := TouchArea {}
+                Text {
+                    text: d.day;
+                    color: d.today ? #ffffff : d.in-month ? Theme.foreground : Theme.foreground-dim.with-alpha(0.5);
+                    font-weight: d.today ? 700 : 400;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+            if root.week-numbers: Rectangle {
+                for row in 6: Text {
+                    x: 0;
+                    y: row * root.cell;
+                    width: 24px;
+                    height: root.cell;
+                    text: root.days[row * 7].week;
+                    color: Theme.foreground-dim.with-alpha(0.7);
+                    font-size: Theme.font-size * 0.75;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+}

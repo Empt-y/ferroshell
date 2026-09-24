@@ -1362,6 +1362,7 @@ dependencies = [
 name = "fsh-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
  "fsh-config",
  "fsh-win",
  "serde",

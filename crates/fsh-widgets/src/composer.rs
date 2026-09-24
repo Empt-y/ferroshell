@@ -49,6 +49,8 @@ pub struct Composer {
 
 /// Name of the root component in generated panel sources.
 pub const PANEL_COMPONENT: &str = "Panel";
+/// Name of the root component in generated popup sources.
+pub const POPUP_COMPONENT: &str = "PopupWindow";
 
 impl Composer {
     pub fn new(layout: Layout) -> Self {
@@ -141,7 +143,7 @@ impl Composer {
             if let Some(w) = warning {
                 status.warnings.push(format!("{key}: {w}"));
             }
-            if field.ui {
+            if field.for_widget() {
                 props.push((key.clone(), lit));
             }
         }
@@ -168,6 +170,47 @@ impl Composer {
             tracing::info!("widget {}: {w}", status.id);
         }
         (Slot::Widget { ui, props }, status)
+    }
+
+    /// Compile a widget's popup (see `[popup]` in widget.toml) as a window component named
+    /// [`POPUP_COMPONENT`], with the popup-scoped settings of this widget instance.
+    pub fn build_popup(
+        &self,
+        registry: &Registry,
+        entry: &WidgetEntry,
+        instance: &str,
+    ) -> Result<(ComponentDefinition, crate::manifest::PopupSpec), String> {
+        let pkg = registry.get(&entry.id)?;
+        let spec = pkg.manifest.popup.clone().ok_or_else(|| format!("{} has no popup", entry.id))?;
+        let path = pkg.dir.join(&spec.file);
+        let mut props = vec![("instance-id".to_owned(), slint_string(instance))];
+        for (key, field) in &pkg.manifest.config {
+            if field.for_popup() {
+                props.push((key.clone(), field.kind.literal(entry.settings.get(key)).0));
+            }
+        }
+        let mut s = String::new();
+        s.push_str("import { Shell, Theme } from \"@ferroshell/api.slint\";\n");
+        let _ = writeln!(s, "import {{ Popup as P }} from {};", slint_string(&slint_path(&path)));
+        s.push_str("export { Shell, Theme }\n\n");
+        let _ = writeln!(s, "export component {POPUP_COMPONENT} inherits Window {{");
+        s.push_str(
+            "    title: \"Ferroshell Popup\";\n    no-frame: true;\n    always-on-top: true;\n    background: transparent;\n    \
+             default-font-size: Theme.font-size;\n    default-font-family: Theme.font-family;\n    \
+             public function take-focus() { scope.focus(); }\n    \
+             Rectangle { background: Theme.popup-background; border-radius: 10px; border-width: 1px; border-color: Theme.panel-border; }\n    \
+             scope := FocusScope {\n        \
+             key-pressed(e) => { if e.text == Key.Escape { Shell.invoke(\"close-popup\", \"\"); return accept; } reject }\n        \
+             P { width: 100%; height: 100%;",
+        );
+        for (k, v) in &props {
+            let _ = write!(s, " {k}: {v};");
+        }
+        s.push_str(" }\n    }\n}\n");
+        let generated = self.generated_dir().join(format!("popup-{}.slint", entry.id));
+        let _ = std::fs::create_dir_all(self.generated_dir());
+        let _ = std::fs::write(&generated, &s);
+        self.compile(s, generated, POPUP_COMPONENT).map(|d| (d, spec))
     }
 
     fn generated_dir(&self) -> PathBuf {
@@ -335,6 +378,18 @@ mod tests {
         for s in statuses {
             assert_eq!(s.error, None, "{} failed", s.id);
         }
+    }
+
+    #[test]
+    fn every_builtin_popup_compiles() {
+        let (composer, registry, _) = setup("widget-popups");
+        let mut n = 0;
+        for pkg in registry.packages().filter(|p| p.manifest.popup.is_some()) {
+            let (def, _) = composer.build_popup(&registry, &entry(&pkg.manifest.id, ""), "test/0").unwrap_or_else(|e| panic!("{}: {e}", pkg.manifest.id));
+            assert!(def.functions().any(|f| f == "take-focus"));
+            n += 1;
+        }
+        assert!(n >= 1, "no built-in popups found");
     }
 
     #[test]

@@ -2,13 +2,18 @@ import { Shell, Theme } from "@ferroshell/api.slint";
 import { PanelButton, Label, DimLabel } from "@ferroshell/controls.slint";
 
 export component Widget inherits PanelButton {
+    in property <string> instance-id;
     in property <string> format: "%H:%M";
     in property <string> date-format: "%d/%m/%Y";
     in property <bool> show-date: true;
 
     horizontal-stretch: 0;
     content-padding: 8px;
-    clicked => { Shell.invoke("calendar", ""); }
+    // Opens the calendar next to the clock.
+    clicked => {
+        Shell.invoke("popup", root.instance-id + "|" + (self.absolute-position.x / 1px) + "," + (self.absolute-position.y / 1px)
+            + "," + (self.width / 1px) + "," + (self.height / 1px));
+    }
 
     VerticalLayout {
         alignment: center;

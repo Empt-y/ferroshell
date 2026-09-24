@@ -6,12 +6,12 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use fsh_config::{ConfigEditor, Edge};
+use fsh_config::ConfigEditor;
 use fsh_core::launcher::{self as core, AppEntry, History, ResultKind, SearchOptions, SearchResult};
 use fsh_widgets::theme_binding;
 use fsh_win::menu::{self, Anchor as MenuAnchor, MenuItem};
 use fsh_win::session::{self, PowerAction};
-use fsh_win::{Hwnd, Rect, panel as win_panel, winfo, winops};
+use fsh_win::{Hwnd, Rect, winfo, winops};
 use slint::{ComponentHandle as _, Image, ModelRc, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value};
 
@@ -292,6 +292,7 @@ impl App {
 
     fn show_launcher(&self, anchor: Anchor) {
         self.hide_preview();
+        self.close_popup();
         if !self.ensure_launcher() {
             return;
         }
@@ -337,19 +338,7 @@ impl App {
         if l.hwnd.get().is_none() {
             l.hwnd.set(Some(hwnd));
         }
-        win_panel::make_popup_window(hwnd);
-        win_panel::set_rect(hwnd, rect);
-        win_panel::set_rounded_corners(hwnd, true);
-        {
-            let st = self.state.borrow();
-            let backdrop = match st.theme.backdrop {
-                fsh_config::Backdrop::None => win_panel::Backdrop::None,
-                fsh_config::Backdrop::Acrylic => win_panel::Backdrop::Acrylic,
-                fsh_config::Backdrop::Mica => win_panel::Backdrop::Mica,
-            };
-            let bg = st.theme.color("popup-background");
-            win_panel::set_backdrop(hwnd, backdrop, (u32::from(bg.r) + u32::from(bg.g) + u32::from(bg.b)) < 384);
-        }
+        crate::popup::style_window(hwnd, rect, &self.state.borrow().theme);
         winops::activate(hwnd);
         let _ = i.invoke("focus-search", &[]);
         l.shown_at.set(Some(Instant::now()));
@@ -364,12 +353,7 @@ impl App {
         if !l.visible.get() || l.shown_at.get().is_none_or(|t| t.elapsed() < FOCUS_GRACE) {
             return;
         }
-        let fg = winfo::foreground();
-        if fg.is_some() && fg != l.hwnd.get() {
-            // Our own context menu keeps the launcher as its owner; anything else closes it.
-            if fg.is_some_and(|h| winfo::class_name(h) == "#32768") {
-                return;
-            }
+        if crate::popup::lost_focus(winfo::foreground(), l.hwnd.get()) {
             self.hide_launcher();
         }
     }
@@ -391,27 +375,13 @@ impl App {
             .or_else(|| monitors.first().cloned());
         let Some(m) = monitor else { return Rect::new(100, 100, 740, 720) };
         let s = f64::from(m.scale());
-        let gap = (6.0 * s) as i32;
-        let w = ((f64::from(cfg.width) * s) as i32).min(m.work.width() - 2 * gap);
-        let h = ((f64::from(cfg.height) * s) as i32).min(m.work.height() - 2 * gap);
-        let (mut x, mut y) = match panel {
-            Some(p) => {
-                let item = match anchor {
-                    Anchor::Panel { rect: Some([ix, iy, _, _]), .. } => p.to_screen(*ix, *iy),
-                    _ => (p.rect.left, p.rect.top),
-                };
-                match p.config.edge {
-                    Edge::Bottom => (item.0, p.rect.top - gap - h),
-                    Edge::Top => (item.0, p.rect.bottom + gap),
-                    Edge::Left => (p.rect.right + gap, item.1),
-                    Edge::Right => (p.rect.left - gap - w, item.1),
-                }
-            }
-            None => (m.work.left + (m.work.width() - w) / 2, m.work.top + (m.work.height() - h) / 2),
+        // Aligned with the button's start (Kickoff-style), not centred on it.
+        let item = match anchor {
+            Anchor::Panel { rect: Some([ix, iy, _, _]), .. } => Some([*ix, *iy, 0.0, 0.0]),
+            _ => None,
         };
-        x = x.clamp(m.work.left + gap, (m.work.right - w - gap).max(m.work.left));
-        y = y.clamp(m.work.top + gap, (m.work.bottom - h - gap).max(m.work.top));
-        Rect::new(x, y, x + w, y + h)
+        let (w, h) = ((f64::from(cfg.width) * s) as i32, (f64::from(cfg.height) * s) as i32);
+        crate::popup::place(panel, item, &m, w, h, false)
     }
 
     fn launcher_search(&self, query: String) {

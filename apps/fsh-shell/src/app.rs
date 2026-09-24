@@ -98,6 +98,7 @@ pub struct App {
     pub(crate) tray_thread: RefCell<Option<crate::tray::TrayThread>>,
     pub(crate) tray_timer: slint::Timer,
     pub(crate) launcher: crate::launcher::Launcher,
+    pub(crate) popups: crate::popup::Popups,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     relayout_pending: Cell<bool>,
@@ -151,6 +152,7 @@ impl App {
             tray_thread: RefCell::new(None),
             tray_timer: slint::Timer::default(),
             launcher: crate::launcher::Launcher::default(),
+            popups: crate::popup::Popups::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -247,6 +249,7 @@ impl App {
 
     pub fn rebuild_panels(&self) {
         let started = Instant::now();
+        self.clear_popups();
         let monitors = monitor::monitors();
         {
             let mut st = self.state.borrow_mut();
@@ -558,6 +561,10 @@ impl App {
             let v: Vec<f64> = arg.split(',').filter_map(|s| s.trim().parse().ok()).collect();
             let rect = (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]]);
             self.toggle_launcher(crate::launcher::Anchor::Panel { key: key.clone(), rect });
+        } else if action == "popup" {
+            self.toggle_popup(key, arg);
+        } else if action == "close-popup" {
+            self.close_popup();
         } else {
             crate::actions::invoke(action, arg);
         }
@@ -617,6 +624,7 @@ impl App {
         for p in &self.state.borrow().panels {
             p.set_now(now);
         }
+        self.popup_tick(now);
     }
 
     // ---------------------------------------------------------------- introspection
@@ -657,6 +665,7 @@ impl App {
             "sources": *self.sources.borrow(),
             "plugins": self.plugins.status(),
             "launcher": self.launcher_state(),
+            "popup": self.popup_state(),
             "tray": {
                 "hosting": self.tray_thread.borrow().is_some(),
                 "icons": self.tray.borrow().model.icons().iter().map(|i| json!({
@@ -680,7 +689,7 @@ pub(crate) fn config_path() -> std::path::PathBuf {
     paths::config_dir().join("config.toml")
 }
 
-fn first_line(s: &str) -> String {
+pub(crate) fn first_line(s: &str) -> String {
     s.lines().next().unwrap_or_default().to_owned()
 }
 

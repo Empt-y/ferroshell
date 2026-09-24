@@ -11,6 +11,7 @@ mod control;
 mod launcher;
 mod panel;
 mod plugins;
+mod popup;
 mod scripts;
 mod taskbar;
 mod thumbs;

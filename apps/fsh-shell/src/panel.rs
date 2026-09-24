@@ -228,7 +228,7 @@ impl Panel {
     }
 }
 
-fn bind_shell(instance: &ComponentInstance, key: &PanelKey, config: &PanelConfig, safe_mode: bool, config_error: &str, tasks: ModelRc<Value>) {
+pub(crate) fn bind_shell(instance: &ComponentInstance, key: &PanelKey, config: &PanelConfig, safe_mode: bool, config_error: &str, tasks: ModelRc<Value>) {
     let set = |name: &str, value: Value| {
         if let Err(e) = instance.set_global_property("Shell", name, value) {
             tracing::warn!("Shell.{name}: {e}");
@@ -253,6 +253,36 @@ fn bind_shell(instance: &ComponentInstance, key: &PanelKey, config: &PanelConfig
             let now = num(args, 0) as i64;
             Value::String(SharedString::from(crate::timefmt::format_time(now, &text(args, 1))))
         }),
+    );
+    callback(
+        "calendar",
+        Box::new(|args| {
+            let today = chrono::DateTime::from_timestamp(num(args, 3) as i64, 0)
+                .map(|t| t.with_timezone(&chrono::Local).date_naive())
+                .unwrap_or_default();
+            let monday_first = !matches!(args.get(2), Some(Value::Bool(false)));
+            let days: Vec<Value> = fsh_core::calendar::month_grid(num(args, 0) as i32, num(args, 1) as u32, monday_first, today)
+                .into_iter()
+                .map(|d| {
+                    use chrono::Datelike as _;
+                    let s: slint_interpreter::Struct = [
+                        ("day", Value::Number(f64::from(d.date.day()))),
+                        ("in-month", Value::Bool(d.in_month)),
+                        ("today", Value::Bool(d.today)),
+                        ("week", Value::Number(f64::from(d.week))),
+                    ]
+                    .into_iter()
+                    .map(|(k, v)| (k.to_owned(), v))
+                    .collect();
+                    Value::Struct(s)
+                })
+                .collect();
+            Value::Model(ModelRc::new(slint::VecModel::from(days)))
+        }),
+    );
+    callback(
+        "month-title",
+        Box::new(|args| Value::String(fsh_core::calendar::month_title(num(args, 0) as i32, num(args, 1) as u32).into())),
     );
     callback("source", Box::new(|args| Value::String(app::source_value(&text(args, 0)).into())));
     let k = key.clone();
