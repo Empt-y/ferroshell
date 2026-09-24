@@ -79,6 +79,11 @@ pub(crate) fn style_window(hwnd: Hwnd, rect: Rect, theme: &Theme) {
     win_panel::make_popup_window(hwnd);
     win_panel::set_rect(hwnd, rect);
     win_panel::set_rounded_corners(hwnd, true);
+    apply_backdrop(hwnd, theme);
+}
+
+/// The theme's DWM material behind a popup-coloured window.
+pub(crate) fn apply_backdrop(hwnd: Hwnd, theme: &Theme) {
     let backdrop = match theme.backdrop {
         fsh_config::Backdrop::None => win_panel::Backdrop::None,
         fsh_config::Backdrop::Acrylic => win_panel::Backdrop::Acrylic,
@@ -161,6 +166,7 @@ impl App {
         let err = st.config.error().map(crate::app::first_line).unwrap_or_default();
         crate::panel::bind_shell(&inst, key, &panel.config, self.safe_mode, &err, ModelRc::from(panel.tasks.model.clone()));
         let _ = inst.set_global_property("Shell", "tray", Value::Model(ModelRc::from(panel.tray.model.clone())));
+        self.bind_services(&inst);
         tracing::info!("compiled popup for {} in {:?}", entry.id, started.elapsed());
         self.popups.cache.borrow_mut().insert(instance.to_owned(), inst);
         Some(size)
@@ -221,6 +227,12 @@ impl App {
         }
         if lost_focus(winfo::foreground(), p.hwnd.get()) {
             self.close_popup();
+        }
+    }
+
+    pub(crate) fn for_each_popup(&self, f: &dyn Fn(&ComponentInstance)) {
+        for i in self.popups.cache.borrow().values() {
+            f(i);
         }
     }
 

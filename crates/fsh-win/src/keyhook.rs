@@ -1,5 +1,6 @@
 //! Taking over a lone Windows-key press, so it opens Ferroshell's launcher instead of the
-//! Windows Start menu, while every Win+<key> shortcut keeps working.
+//! Windows Start menu, while every Win+<key> shortcut keeps working; and, when Ferroshell
+//! replaces Explorer, the volume and media keys (nothing else would handle them).
 //!
 //! A low-level keyboard hook runs on its own thread with its own message loop. Its
 //! callback does nothing but update a tiny state machine and, on a lone Win tap, replace
@@ -8,6 +9,7 @@
 //! slow, and a stuck hook would stall everyone's input.
 
 use std::sync::Mutex;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -28,6 +30,49 @@ const VK_LWIN: u32 = 0x5B;
 const VK_RWIN: u32 = 0x5C;
 /// An unassigned virtual key: pressing it does nothing but makes Win+it a "chord".
 const VK_DUMMY: u16 = 0xE8;
+
+/// A volume or media key.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MediaKey {
+    VolumeUp,
+    VolumeDown,
+    Mute,
+    PlayPause,
+    Next,
+    Previous,
+    Stop,
+}
+
+impl MediaKey {
+    pub fn from_vk(vk: u32) -> Option<Self> {
+        Some(match vk {
+            0xAD => Self::Mute,
+            0xAE => Self::VolumeDown,
+            0xAF => Self::VolumeUp,
+            0xB0 => Self::Next,
+            0xB1 => Self::Previous,
+            0xB2 => Self::Stop,
+            0xB3 => Self::PlayPause,
+            _ => return None,
+        })
+    }
+
+    /// Held volume keys repeat; the others act once per press.
+    pub fn repeats(self) -> bool {
+        matches!(self, Self::VolumeUp | Self::VolumeDown)
+    }
+}
+
+/// What the hook reports.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KeyEvent {
+    /// A lone Windows-key tap.
+    WinTap,
+    Media(MediaKey),
+}
+
+static WIN_TAP: AtomicBool = AtomicBool::new(false);
+static MEDIA_KEYS: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HookAction {
@@ -77,9 +122,11 @@ impl WinKeyState {
     }
 }
 
-type OnTap = Box<dyn Fn() + Send>;
+type OnEvent = Box<dyn Fn(KeyEvent) + Send>;
 
-static STATE: Mutex<(WinKeyState, Option<OnTap>)> = Mutex::new((WinKeyState { win_down: false, chord: false }, None));
+/// Hook state, plus the media key currently held (to report auto-repeat only for volume).
+static STATE: Mutex<(WinKeyState, Option<OnEvent>, Option<MediaKey>)> =
+    Mutex::new((WinKeyState { win_down: false, chord: false }, None, None));
 
 fn key(vk: u16, up: bool) -> INPUT {
     INPUT {
@@ -104,13 +151,27 @@ unsafe extern "system" fn hook_proc(code: i32, wparam: WPARAM, lparam: LPARAM) -
             let injected = info.flags.0 & LLKHF_INJECTED.0 != 0;
             // try_lock: never wait inside a keyboard hook.
             if let Ok(mut guard) = STATE.try_lock() {
-                let (state, on_tap) = &mut *guard;
-                if state.on_key(info.vkCode, down, injected) == HookAction::ReplaceWinUp {
+                let (state, on_event, held) = &mut *guard;
+                let report = |e: KeyEvent| {
+                    if let Some(f) = on_event.as_ref() {
+                        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| f(e)));
+                    }
+                };
+                if let Some(mk) = MediaKey::from_vk(info.vkCode).filter(|_| !injected && MEDIA_KEYS.load(Ordering::Relaxed)) {
+                    if down {
+                        if *held != Some(mk) || mk.repeats() {
+                            report(KeyEvent::Media(mk));
+                        }
+                        *held = Some(mk);
+                    } else {
+                        *held = None;
+                    }
+                    return LRESULT(1);
+                }
+                if WIN_TAP.load(Ordering::Relaxed) && state.on_key(info.vkCode, down, injected) == HookAction::ReplaceWinUp {
                     let inputs = [key(VK_DUMMY, false), key(VK_DUMMY, true), key(info.vkCode as u16, true)];
                     unsafe { SendInput(&inputs, size_of::<INPUT>() as i32) };
-                    if let Some(f) = on_tap {
-                        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
-                    }
+                    report(KeyEvent::WinTap);
                     return LRESULT(1);
                 }
             }
@@ -128,11 +189,12 @@ pub struct KeyHook {
 }
 
 impl KeyHook {
-    /// Start the hook thread. `on_tap` runs on that thread for every lone Win tap and
-    /// must return immediately (e.g. post to another thread).
-    pub fn start(on_tap: impl Fn() + Send + 'static) -> anyhow::Result<Self> {
+    /// Start the hook thread. `on_event` runs on that thread for every lone Win tap and
+    /// media key (as enabled by [`KeyHook::set_features`]) and must return immediately
+    /// (e.g. post to another thread).
+    pub fn start(on_event: impl Fn(KeyEvent) + Send + 'static) -> anyhow::Result<Self> {
         if let Ok(mut g) = STATE.lock() {
-            *g = (WinKeyState::default(), Some(Box::new(on_tap)));
+            *g = (WinKeyState::default(), Some(Box::new(on_event)), None);
         }
         let (tx, rx) = mpsc::channel();
         let thread = std::thread::Builder::new().name("keyhook".into()).spawn(move || {
@@ -166,6 +228,13 @@ impl KeyHook {
         let control = rx.recv_timeout(Duration::from_secs(5)).context("key hook thread did not start")??;
         Ok(Self { control, thread: Some(thread) })
     }
+
+    /// Which keys to take over: lone Win taps and/or volume and media keys. Keys not taken
+    /// over pass through to Windows untouched.
+    pub fn set_features(&self, win_tap: bool, media_keys: bool) {
+        WIN_TAP.store(win_tap, Ordering::Relaxed);
+        MEDIA_KEYS.store(media_keys, Ordering::Relaxed);
+    }
 }
 
 impl Drop for KeyHook {
@@ -174,6 +243,8 @@ impl Drop for KeyHook {
         if let Some(t) = self.thread.take() {
             let _ = t.join();
         }
+        WIN_TAP.store(false, Ordering::Relaxed);
+        MEDIA_KEYS.store(false, Ordering::Relaxed);
         if let Ok(mut g) = STATE.lock() {
             g.1 = None;
         }
@@ -224,5 +295,13 @@ mod tests {
         assert_eq!(s.on_key(VK_LWIN, false, true), HookAction::Pass);
         // A stray Win-up without a down isn't a tap.
         assert_eq!(WinKeyState::default().on_key(VK_LWIN, false, false), HookAction::Pass);
+    }
+
+    #[test]
+    fn media_keys() {
+        assert_eq!(MediaKey::from_vk(0xAF), Some(MediaKey::VolumeUp));
+        assert_eq!(MediaKey::from_vk(0xB3), Some(MediaKey::PlayPause));
+        assert_eq!(MediaKey::from_vk(A), None);
+        assert!(MediaKey::VolumeDown.repeats() && !MediaKey::PlayPause.repeats());
     }
 }

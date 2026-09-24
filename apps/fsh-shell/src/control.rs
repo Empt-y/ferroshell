@@ -65,6 +65,24 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
             });
             Ok(json!({"ok": true}))
         }
+        // Act as if a volume/media key was pressed (they're only hooked in replacement mode):
+        // {"key": "volume-up" | "volume-down" | "mute" | "play-pause" | "next" | "previous"}.
+        "debug.media_key" => {
+            use fsh_win::keyhook::{KeyEvent, MediaKey};
+            let key = match params.get("key").and_then(Value::as_str).unwrap_or_default() {
+                "volume-up" => MediaKey::VolumeUp,
+                "volume-down" => MediaKey::VolumeDown,
+                "mute" => MediaKey::Mute,
+                "play-pause" => MediaKey::PlayPause,
+                "next" => MediaKey::Next,
+                "previous" => MediaKey::Previous,
+                other => return Err(RpcError::invalid_params(format!("unknown key `{other}`"))),
+            };
+            on_ui(move || {
+                app::with(|a| a.on_key_event(KeyEvent::Media(key)));
+                json!({"ok": true})
+            })
+        }
         "debug.hang" => {
             // Blocks the UI thread to test hang detection.
             let secs = params.get("secs").and_then(Value::as_u64).unwrap_or(30);

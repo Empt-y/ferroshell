@@ -1,6 +1,6 @@
 //! COM initialisation for threads that use shell APIs (icons, shortcuts, app ids).
 
-use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx, CoUninitialize};
+use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, COINIT_MULTITHREADED, CoInitializeEx, CoUninitialize};
 
 /// Initialises COM (single-threaded apartment) on the current thread until dropped.
 pub struct ComGuard {
@@ -12,6 +12,12 @@ impl ComGuard {
     pub fn new() -> Self {
         let hr = unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE) };
         // S_FALSE (already initialised) still needs a matching CoUninitialize.
+        Self { initialised: hr.is_ok(), _not_send: std::marker::PhantomData }
+    }
+
+    /// Multi-threaded apartment, for threads that wait on WinRT async operations.
+    pub fn mta() -> Self {
+        let hr = unsafe { CoInitializeEx(None, COINIT_MULTITHREADED) };
         Self { initialised: hr.is_ok(), _not_send: std::marker::PhantomData }
     }
 }

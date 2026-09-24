@@ -2,6 +2,7 @@
 //! workspace that may use `unsafe`; everything it exports is safe to call.
 
 pub mod appbar;
+pub mod audio;
 pub mod appsfolder;
 pub mod clipboard;
 pub mod com;
@@ -11,6 +12,7 @@ pub mod hotkey;
 pub mod icon;
 pub mod job;
 pub mod keyhook;
+pub mod media;
 pub mod menu;
 pub mod monitor;
 pub mod panel;

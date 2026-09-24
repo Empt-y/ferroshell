@@ -1,0 +1,67 @@
+// The on-screen display shown when the volume keys are used while Ferroshell replaces
+// Explorer. Override it by copying this file to %APPDATA%\ferroshell\library\osd.slint (or
+// a theme's library folder); keep the component name and properties.
+
+import { Theme } from "api.slint";
+import { SpeakerIcon } from "controls.slint";
+export { Theme }
+
+export component OsdWindow inherits Window {
+    // 0-100
+    in property <float> value;
+    in property <bool> muted;
+    in property <string> label;
+
+    title: "Ferroshell OSD";
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+    default-font-size: Theme.font-size;
+    default-font-family: Theme.font-family;
+
+    Rectangle {
+        background: Theme.popup-background;
+        // Matches the rounded corners Windows 11 gives the window (and its backdrop).
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.panel-border;
+    }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 14px;
+        alignment: stretch;
+        SpeakerIcon {
+            y: (parent.height - self.height) / 2;
+            width: 22px;
+            height: 22px;
+            level: root.value;
+            muted: root.muted;
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            Rectangle {
+                y: (parent.height - self.height) / 2;
+                height: 4px;
+                border-radius: 2px;
+                background: Theme.foreground-dim.with-alpha(0.3);
+            }
+            Rectangle {
+                x: 0;
+                y: (parent.height - self.height) / 2;
+                width: parent.width * root.value / 100;
+                height: 4px;
+                border-radius: 2px;
+                background: root.muted ? Theme.foreground-dim : Theme.accent;
+                animate width { duration: 80ms; }
+            }
+        }
+        Text {
+            width: 30px;
+            text: round(root.value);
+            color: Theme.foreground;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+    }
+}

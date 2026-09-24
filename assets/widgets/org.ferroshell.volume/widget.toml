@@ -1,0 +1,42 @@
+id = "org.ferroshell.volume"
+name = "Audio Volume"
+description = "Volume, devices, per-app mixer and media controls. Scroll to change the volume, middle-click to mute."
+version = "1.0.0"
+api = 1
+services = ["audio", "media"]
+
+[popup]
+file = "popup.slint"
+width = 360
+height = 520
+
+[config.scroll-step]
+type = "int"
+default = 5
+min = 1
+max = 25
+label = "Volume step (%)"
+description = "How much one scroll notch changes the volume."
+
+[config.show-percentage]
+type = "bool"
+default = false
+label = "Show percentage on the panel"
+
+[config.show-apps]
+type = "bool"
+default = true
+scope = "popup"
+label = "Show the per-app mixer"
+
+[config.show-media]
+type = "bool"
+default = true
+scope = "popup"
+label = "Show media controls"
+
+[config.show-input]
+type = "bool"
+default = true
+scope = "popup"
+label = "Show the microphone"

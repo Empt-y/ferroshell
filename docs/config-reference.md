@@ -31,7 +31,8 @@ are warnings: the widget still loads and the setting is ignored.
 | `org.ferroshell.launcher-button` | `action`: `"launcher"` (default) or `"start-menu"` (Windows Start) |
 | `org.ferroshell.taskmanager` | `show-titles`, `max-item-width`, `group`, `only-this-monitor`, `pinned` |
 | `org.ferroshell.systemtray` | `icon-scale`, `hidden` (patterns matched against tooltip or program name). Only works when Ferroshell replaces Explorer as the shell; alongside Explorer it stays empty |
-| `org.ferroshell.clock` | `format`, `date-format` ([strftime](https://docs.rs/chrono/latest/chrono/format/strftime/)), `show-date` |
+| `org.ferroshell.volume` | `scroll-step`, `show-percentage`; popup: `show-apps`, `show-media`, `show-input`. Click for the mixer (devices, per-app volume, now playing), scroll to change the volume, middle-click to mute |
+| `org.ferroshell.clock` | `format`, `date-format` ([strftime](https://docs.rs/chrono/latest/chrono/format/strftime/)), `show-date`; popup (calendar): `first-day` (`"monday"`/`"sunday"`), `week-numbers` |
 | `org.ferroshell.show-desktop` | — |
 | `org.ferroshell.spacer` | `size` (0 = expand) |
 | `org.ferroshell.separator` | — |

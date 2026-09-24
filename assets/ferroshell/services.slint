@@ -1,0 +1,82 @@
+// Ferroshell system services, for applets and your own widgets.
+//
+//     import { Audio, Media } from "@ferroshell/services.slint";
+//
+// A widget has to ask for the services it reads in its widget.toml:
+//
+//     services = ["audio", "media"]
+//
+// The shell only runs a service while some widget on a panel asks for it. Until then (or
+// if the service fails) `available` is false and everything else keeps its default.
+// See docs/widget-api.md.
+
+// An audio output or input device.
+export struct AudioDevice {
+    id: string,
+    name: string,
+    // The Windows default device.
+    default: bool,
+}
+
+// An app playing (or able to play) sound, with its own volume.
+export struct AudioApp {
+    // Process id; 0 is "System sounds".
+    pid: int,
+    name: string,
+    icon: image,
+    // 0-100
+    volume: float,
+    muted: bool,
+    // Playing right now.
+    active: bool,
+}
+
+// Service "audio".
+export global Audio {
+    in property <bool> available;
+    // Default output, 0-100.
+    in property <float> volume;
+    in property <bool> muted;
+    in property <string> output-name;
+    in property <[AudioDevice]> outputs;
+    // Default input (microphone); `has-input` is false without one.
+    in property <bool> has-input;
+    in property <float> input-volume;
+    in property <bool> input-muted;
+    in property <string> input-name;
+    in property <[AudioDevice]> inputs;
+    // Per-app volumes on the default output.
+    in property <[AudioApp]> apps;
+
+    callback set-volume(/* 0-100 */ float);
+    callback set-muted(bool);
+    callback set-input-volume(/* 0-100 */ float);
+    callback set-input-muted(bool);
+    // Make a device (from `outputs` or `inputs`) the Windows default.
+    callback set-default-device(/* id */ string);
+    callback set-app-volume(/* pid */ int, /* 0-100 */ float);
+    callback set-app-muted(/* pid */ int, bool);
+}
+
+// Service "media": the current media session (Spotify, a browser tab, ...).
+export global Media {
+    in property <bool> available;
+    // Something is playing or paused.
+    in property <bool> has-session;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> album;
+    // The app that's playing, and its icon when the shell knows it.
+    in property <string> app-name;
+    in property <image> app-icon;
+    in property <image> art;
+    in property <bool> has-art;
+    in property <bool> playing;
+    in property <bool> can-play-pause;
+    in property <bool> can-next;
+    in property <bool> can-previous;
+
+    callback play-pause();
+    callback next();
+    callback previous();
+}

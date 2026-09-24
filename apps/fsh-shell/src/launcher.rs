@@ -196,18 +196,7 @@ impl App {
         if l.instance.borrow().is_some() {
             return true;
         }
-        let overrides = {
-            let st = self.state.borrow();
-            let mut dirs = vec![fsh_common::paths::config_dir().join("library")];
-            if !self.safe_mode {
-                if let Some(t) = self.layout().theme_dir(&st.theme_name) {
-                    dirs.push(t.join("library"));
-                }
-            } else {
-                dirs.clear();
-            }
-            dirs
-        };
+        let overrides = self.library_overrides();
         let (def, errors) = self.composer.compile_library_with_overrides("launcher.slint", "LauncherWindow", &overrides);
         for e in errors {
             tracing::warn!("launcher override ignored: {e}");

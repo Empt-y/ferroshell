@@ -1,0 +1,218 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Audio, Media } from "@ferroshell/services.slint";
+import { Label, DimLabel, Slider, IconButton, ListRow, Heading, SpeakerIcon, MicIcon, MediaIcon } from "@ferroshell/controls.slint";
+
+// The "now playing" card.
+component NowPlaying inherits Rectangle {
+    height: 84px;
+    border-radius: 8px;
+    background: Theme.hover;
+    HorizontalLayout {
+        padding: 10px;
+        spacing: 12px;
+        Rectangle {
+            width: 64px;
+            height: 64px;
+            border-radius: 6px;
+            clip: true;
+            background: Theme.pressed;
+            if Media.has-art: Image {
+                width: 100%;
+                height: 100%;
+                source: Media.art;
+                image-fit: cover;
+            }
+            if !Media.has-art: Image {
+                width: 60%;
+                height: 60%;
+                source: Media.app-icon;
+                image-fit: contain;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 2px;
+            Label {
+                text: Media.title != "" ? Media.title : Media.app-name;
+                font-weight: 600;
+            }
+            DimLabel { text: Media.artist; visible: Media.artist != ""; }
+            HorizontalLayout {
+                alignment: start;
+                spacing: 2px;
+                IconButton {
+                    tooltip: "Previous";
+                    enabled: Media.can-previous;
+                    clicked => { Media.previous(); }
+                    MediaIcon { kind: "previous"; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                }
+                IconButton {
+                    tooltip: Media.playing ? "Pause" : "Play";
+                    enabled: Media.can-play-pause;
+                    clicked => { Media.play-pause(); }
+                    MediaIcon { kind: Media.playing ? "pause" : "play"; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                }
+                IconButton {
+                    tooltip: "Next";
+                    enabled: Media.can-next;
+                    clicked => { Media.next(); }
+                    MediaIcon { kind: "next"; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                }
+            }
+        }
+    }
+}
+
+// Icon (or mute button), name above a slider, and the percentage.
+component VolumeRow inherits HorizontalLayout {
+    in property <string> name;
+    in property <float> value;
+    in property <bool> muted;
+    in property <image> icon;
+    in property <bool> has-icon;
+    in property <bool> microphone;
+    callback changed(float);
+    callback toggle-mute();
+    spacing: 8px;
+    alignment: stretch;
+
+    IconButton {
+        tooltip: root.muted ? "Unmute" : "Mute";
+        checked: root.muted;
+        clicked => { root.toggle-mute(); }
+        if root.has-icon: Image {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 20px;
+            height: 20px;
+            source: root.icon;
+            opacity: root.muted ? 0.4 : 1;
+        }
+        if !root.has-icon && !root.microphone: SpeakerIcon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            level: root.value;
+            muted: root.muted;
+        }
+        if root.microphone: MicIcon {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            muted: root.muted;
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        horizontal-stretch: 1;
+        DimLabel { text: root.name; }
+        Slider {
+            value: root.value;
+            changed(v) => { root.changed(v); }
+        }
+    }
+    Label {
+        width: 38px;
+        text: round(root.value) + "%";
+        horizontal-alignment: right;
+        color: root.muted ? Theme.foreground-dim : Theme.foreground;
+    }
+}
+
+export component Popup inherits Rectangle {
+    in property <string> instance-id;
+    in property <bool> show-apps: true;
+    in property <bool> show-media: true;
+    in property <bool> show-input: true;
+
+    if !Audio.available: Label {
+        text: "Audio is unavailable.";
+        horizontal-alignment: center;
+    }
+
+    if Audio.available: Flickable {
+        viewport-height: content.preferred-height;
+        content := VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            alignment: start;
+
+            if root.show-media && Media.has-session: NowPlaying {}
+
+            Heading { text: "Output"; }
+            VolumeRow {
+                name: Audio.output-name;
+                value: Audio.volume;
+                muted: Audio.muted;
+                changed(v) => { Audio.set-volume(v); }
+                toggle-mute => { Audio.set-muted(!Audio.muted); }
+            }
+            if Audio.outputs.length > 1: VerticalLayout {
+                for d in Audio.outputs: ListRow {
+                    selected: d.default;
+                    clicked => { Audio.set-default-device(d.id); }
+                    Rectangle {
+                        width: 8px;
+                        Rectangle {
+                            width: 8px;
+                            height: 8px;
+                            border-radius: 4px;
+                            background: d.default ? Theme.accent : transparent;
+                            border-width: 1px;
+                            border-color: d.default ? Theme.accent : Theme.foreground-dim;
+                        }
+                    }
+                    Label { text: d.name; }
+                }
+            }
+
+            if root.show-input && Audio.has-input: VerticalLayout {
+                spacing: 10px;
+                Heading { text: "Input"; }
+                VolumeRow {
+                    name: Audio.input-name;
+                    value: Audio.input-volume;
+                    muted: Audio.input-muted;
+                    microphone: true;
+                    changed(v) => { Audio.set-input-volume(v); }
+                    toggle-mute => { Audio.set-input-muted(!Audio.input-muted); }
+                }
+                if Audio.inputs.length > 1: VerticalLayout {
+                    for d in Audio.inputs: ListRow {
+                        selected: d.default;
+                        clicked => { Audio.set-default-device(d.id); }
+                        Rectangle {
+                            width: 8px;
+                            Rectangle {
+                                width: 8px;
+                                height: 8px;
+                                border-radius: 4px;
+                                background: d.default ? Theme.accent : transparent;
+                                border-width: 1px;
+                                border-color: d.default ? Theme.accent : Theme.foreground-dim;
+                            }
+                        }
+                        Label { text: d.name; }
+                    }
+                }
+            }
+
+            if root.show-apps && Audio.apps.length > 0: VerticalLayout {
+                spacing: 10px;
+                Heading { text: "Applications"; }
+                for app in Audio.apps: VolumeRow {
+                    name: app.name;
+                    value: app.volume;
+                    muted: app.muted;
+                    icon: app.icon;
+                    has-icon: app.icon.width > 0;
+                    changed(v) => { Audio.set-app-volume(app.pid, v); }
+                    toggle-mute => { Audio.set-app-muted(app.pid, !app.muted); }
+                }
+            }
+
+            ListRow {
+                clicked => { Shell.invoke("launch", "ms-settings:sound"); Shell.invoke("close-popup", ""); }
+                Label { text: "Sound settings…"; color: Theme.accent; }
+            }
+        }
+    }
+}

@@ -30,6 +30,11 @@ pub struct Manifest {
     /// Optional popup (an applet's detail view), opened from the widget.
     #[serde(default)]
     pub popup: Option<PopupSpec>,
+    /// System services the widget reads (`Audio`, `Media`, … in `@ferroshell/services.slint`),
+    /// e.g. `services = ["audio", "media"]`. The shell only runs a service while a widget
+    /// on some panel asks for it; without it the service's global keeps its defaults.
+    #[serde(default)]
+    pub services: Vec<String>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq)]

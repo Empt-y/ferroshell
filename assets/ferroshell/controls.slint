@@ -35,6 +35,10 @@ export component PanelButton inherits Rectangle {
     callback middle-clicked();
     callback double-clicked();
     callback right-clicked(/* x */ length, /* y */ length);
+    // Mouse wheel over the button: +1 per notch up, -1 down. Only fires (and only stops the
+    // wheel reaching what's behind) when `wheel` is true.
+    in property <bool> wheel;
+    callback scrolled(/* notches */ int);
 
     border-radius: Theme.radius;
     background: touch.pressed ? Theme.pressed
@@ -81,6 +85,13 @@ export component PanelButton inherits Rectangle {
         enabled: root.enabled;
         clicked => { root.clicked(); }
         double-clicked => { root.double-clicked(); }
+        scroll-event(e) => {
+            if !root.wheel || e.delta-y == 0 {
+                return reject;
+            }
+            root.scrolled(e.delta-y > 0 ? 1 : -1);
+            accept
+        }
         pointer-event(e) => {
             if e.kind == PointerEventKind.up {
                 if e.button == PointerEventButton.middle {
@@ -124,4 +135,218 @@ export component ErrorWidget inherits Rectangle {
         }
     }
     touch := TouchArea {}
+}
+
+// ---- Popup controls ------------------------------------------------------------------
+
+// A horizontal slider from 0 to `maximum`. It reports every change through `changed` and
+// never writes `value` itself, so `value` can stay bound to live data (e.g. Audio.volume)
+// without the two fighting while the user drags. Scroll to nudge by `step`; arrow keys
+// work when it has focus.
+export component Slider inherits Rectangle {
+    in property <float> value;
+    in property <float> maximum: 100;
+    in property <float> step: 5;
+    in property <bool> enabled: true;
+    out property <bool> dragging: touch.pressed;
+    callback changed(float);
+
+    property <float> drag-value;
+    property <float> shown: touch.pressed ? root.drag-value : root.value;
+    property <length> knob: 14px;
+
+    min-width: 60px;
+    height: 22px;
+    horizontal-stretch: 1;
+    opacity: root.enabled ? 1 : 0.5;
+
+    function set-from(x: length) {
+        root.drag-value = max(0, min(root.maximum, (x - root.knob / 2) / (root.width - root.knob) * root.maximum));
+        root.changed(root.drag-value);
+    }
+    function nudge(by: float) {
+        root.changed(max(0, min(root.maximum, root.value + by)));
+    }
+
+    // Track, then the filled part.
+    Rectangle {
+        x: root.knob / 2;
+        width: parent.width - root.knob;
+        y: (parent.height - self.height) / 2;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.foreground-dim.with-alpha(0.3);
+    }
+    Rectangle {
+        x: root.knob / 2;
+        width: (parent.width - root.knob) * min(1, root.shown / max(root.maximum, 0.001));
+        y: (parent.height - self.height) / 2;
+        height: 4px;
+        border-radius: 2px;
+        background: Theme.accent;
+    }
+    Rectangle {
+        x: (parent.width - root.knob) * min(1, root.shown / max(root.maximum, 0.001));
+        y: (parent.height - self.height) / 2;
+        width: root.knob;
+        height: root.knob;
+        border-radius: self.width / 2;
+        background: touch.has-hover || focus.has-focus ? Theme.foreground : Theme.foreground.with-alpha(0.9);
+        border-width: focus.has-focus ? 2px : 0;
+        border-color: Theme.accent;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                focus.focus();
+                root.set-from(self.mouse-x);
+            }
+        }
+        moved => {
+            if self.pressed {
+                root.set-from(self.mouse-x);
+            }
+        }
+        scroll-event(e) => {
+            if e.delta-y > 0 {
+                root.nudge(root.step);
+            } else if e.delta-y < 0 {
+                root.nudge(-root.step);
+            }
+            accept
+        }
+    }
+    focus := FocusScope {
+        enabled: root.enabled;
+        key-pressed(e) => {
+            if e.text == Key.RightArrow || e.text == Key.UpArrow {
+                root.nudge(root.step);
+                return accept;
+            }
+            if e.text == Key.LeftArrow || e.text == Key.DownArrow {
+                root.nudge(-root.step);
+                return accept;
+            }
+            reject
+        }
+    }
+}
+
+// A small round, flat button for icons (mute, play, ...). Put the icon inside.
+export component IconButton inherits Rectangle {
+    in property <bool> enabled: true;
+    in property <bool> checked;
+    in property <string> tooltip;
+    callback clicked();
+    width: 32px;
+    height: 32px;
+    border-radius: self.height / 2;
+    background: !root.enabled ? transparent
+        : touch.pressed ? Theme.pressed
+        : touch.has-hover ? Theme.hover
+        : root.checked ? Theme.highlight
+        : transparent;
+    opacity: root.enabled ? 1 : 0.4;
+    accessible-role: button;
+    accessible-label: root.tooltip;
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+    @children
+}
+
+// A row in a popup list (a device, a network, ...): highlighted on hover, and marked when
+// `selected`.
+export component ListRow inherits Rectangle {
+    in property <bool> selected;
+    callback clicked();
+    height: 34px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : root.selected ? Theme.highlight : transparent;
+    touch := TouchArea { clicked => { root.clicked(); } }
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 8px;
+        @children
+    }
+}
+
+// Section heading inside a popup.
+export component Heading inherits Text {
+    color: Theme.foreground-dim;
+    font-size: Theme.font-size * 0.85;
+    font-weight: 600;
+    vertical-alignment: center;
+}
+
+// ---- Icons (vector, so they follow the theme's colours) --------------------------------
+
+// Speaker with 0-3 sound waves for `level` (0-100), or a cross when `muted`.
+export component SpeakerIcon inherits Rectangle {
+    in property <float> level: 50;
+    in property <bool> muted;
+    in property <color> tint: Theme.foreground;
+    width: 18px;
+    height: 18px;
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        fill: root.tint;
+        commands: "M3 9 L7 9 L12 4.5 L12 19.5 L7 15 L3 15 Z";
+    }
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        stroke: root.tint;
+        stroke-width: 1.8px;
+        commands: root.muted ? "M16 9.5 L21 14.5 M21 9.5 L16 14.5"
+            : root.level <= 0 ? ""
+            : root.level < 34 ? "M15 10 Q16.5 12 15 14"
+            : root.level < 67 ? "M15 10 Q16.5 12 15 14 M17.5 7.5 Q21 12 17.5 16.5"
+            : "M15 10 Q16.5 12 15 14 M17.5 7.5 Q21 12 17.5 16.5 M20 5 Q25 12 20 19";
+    }
+}
+
+// Microphone, struck through when `muted`.
+export component MicIcon inherits Rectangle {
+    in property <bool> muted;
+    in property <color> tint: Theme.foreground;
+    width: 18px;
+    height: 18px;
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        stroke: root.tint;
+        stroke-width: 1.8px;
+        commands: "M9 5 A3 3 0 0 1 15 5 L15 11 A3 3 0 0 1 9 11 Z M5.5 11 A6.5 6.5 0 0 0 18.5 11 M12 17.5 L12 21 M8.5 21 L15.5 21"
+            + (root.muted ? " M4 3 L20 21" : "");
+    }
+}
+
+// Media transport icons: "play", "pause", "next" or "previous".
+export component MediaIcon inherits Rectangle {
+    in property <string> kind: "play";
+    in property <color> tint: Theme.foreground;
+    width: 16px;
+    height: 16px;
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        fill: root.tint;
+        commands: root.kind == "pause" ? "M6 4 L10 4 L10 20 L6 20 Z M14 4 L18 4 L18 20 L14 20 Z"
+            : root.kind == "next" ? "M4 4 L15 12 L4 20 Z M16 4 L20 4 L20 20 L16 20 Z"
+            : root.kind == "previous" ? "M20 4 L9 12 L20 20 Z M4 4 L8 4 L8 20 L4 20 Z"
+            : "M6 3.5 L20 12 L6 20.5 Z";
+    }
 }

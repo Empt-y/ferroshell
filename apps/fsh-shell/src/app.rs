@@ -99,8 +99,11 @@ pub struct App {
     pub(crate) tray_timer: slint::Timer,
     pub(crate) launcher: crate::launcher::Launcher,
     pub(crate) popups: crate::popup::Popups,
+    pub(crate) services: crate::services::Services,
+    pub(crate) osd: crate::osd::Osd,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
+    keyhook_features: Cell<(bool, bool)>,
     relayout_pending: Cell<bool>,
     last_relayout: Cell<Option<Instant>>,
     reload_pending: Cell<Pending>,
@@ -153,12 +156,15 @@ impl App {
             tray_timer: slint::Timer::default(),
             launcher: crate::launcher::Launcher::default(),
             popups: crate::popup::Popups::default(),
+            services: crate::services::Services::default(),
+            osd: crate::osd::Osd::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
                 });
             })?,
             keyhook: RefCell::new(None),
+            keyhook_features: Cell::new((false, false)),
             relayout_pending: Cell::new(false),
             last_relayout: Cell::new(None),
             reload_pending: Cell::new(Pending::None),
@@ -284,6 +290,7 @@ impl App {
                     });
                     match built {
                         Ok((p, statuses)) => {
+                            self.bind_services(&p.instance);
                             st.statuses.push((p.name.clone(), statuses));
                             st.panels.push(p);
                         }
@@ -302,6 +309,7 @@ impl App {
         }
         self.refresh_tasks();
         self.sync_scripts();
+        self.sync_services();
         self.sync_tray();
         self.sync_keyhook();
         self.attach_started.set(Some(Instant::now()));
@@ -527,30 +535,49 @@ impl App {
         }
     }
 
-    pub(crate) fn layout(&self) -> &Layout {
-        &self.layout
+    /// Where overrides of `@ferroshell` library files are looked for, highest priority
+    /// first: the user's `library` folder, then the theme's. None in safe mode.
+    pub(crate) fn library_overrides(&self) -> Vec<std::path::PathBuf> {
+        if self.safe_mode {
+            return vec![];
+        }
+        let mut dirs = vec![paths::config_dir().join("library")];
+        if let Some(t) = self.layout.theme_dir(&self.state.borrow().theme_name) {
+            dirs.push(t.join("library"));
+        }
+        dirs
     }
 
-    /// The Windows key opens our launcher while `[launcher] windows-key` is on (never in
-    /// safe mode).
+    /// The keyboard hook: the Windows key opens our launcher while `[launcher] windows-key`
+    /// is on, and the volume and media keys are ours while we replace Explorer. Never in
+    /// safe mode.
     fn sync_keyhook(&self) {
-        let wanted = !self.safe_mode && self.state.borrow().config.config().launcher.windows_key;
+        let win = !self.safe_mode && self.state.borrow().config.config().launcher.windows_key;
+        let media = crate::osd::media_keys_wanted(self.safe_mode);
+        let wanted = win || media;
         let running = self.keyhook.borrow().is_some();
         if wanted && !running {
-            match fsh_win::keyhook::KeyHook::start(|| {
-                let _ = slint::invoke_from_event_loop(|| {
-                    with(|a| a.toggle_launcher(crate::launcher::Anchor::Cursor));
+            match fsh_win::keyhook::KeyHook::start(|e| {
+                let _ = slint::invoke_from_event_loop(move || {
+                    with(|a| a.on_key_event(e));
                 });
             }) {
-                Ok(h) => {
-                    tracing::info!("Windows key opens the launcher");
-                    *self.keyhook.borrow_mut() = Some(h);
-                }
-                Err(e) => tracing::error!("could not take over the Windows key: {e:#}"),
+                Ok(h) => *self.keyhook.borrow_mut() = Some(h),
+                Err(e) => tracing::error!("could not install the keyboard hook: {e:#}"),
             }
         } else if !wanted && running {
             drop(self.keyhook.borrow_mut().take());
-            tracing::info!("Windows key returned to Windows");
+        }
+        if let Some(h) = self.keyhook.borrow().as_ref() {
+            h.set_features(win, media);
+        }
+        let now = (win, media);
+        if self.keyhook_features.replace(now) != now {
+            tracing::info!(
+                "Windows key: {}; volume and media keys: {}",
+                if win { "opens the launcher" } else { "Windows" },
+                if media { "Ferroshell" } else { "Windows" }
+            );
         }
     }
 
@@ -666,6 +693,7 @@ impl App {
             "plugins": self.plugins.status(),
             "launcher": self.launcher_state(),
             "popup": self.popup_state(),
+            "services": self.services_state(),
             "tray": {
                 "hosting": self.tray_thread.borrow().is_some(),
                 "icons": self.tray.borrow().model.icons().iter().map(|i| json!({

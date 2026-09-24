@@ -65,11 +65,12 @@ export global Shell {
     pure callback format-time(/* now */ int, /* format */ string) -> string;
     // Current value of a data source published by a plugin or script, as text ("" if unset).
     // Pass `Shell.sources-revision` so the binding re-evaluates when sources change.
-    // A 6×7 month grid (month 1–12). Pass `Shell.now` so `today` updates at midnight.
-    pure callback calendar(/* year */ int, /* month */ int, /* monday-first */ bool, /* now */ int) -> [CalendarDay];
-    // "September 2026"
-    pure callback month-title(/* year */ int, /* month */ int) -> string;
     pure callback source(/* name */ string, /* revision */ int) -> string;
+    // A 6×7 month grid (month 1–12) in local time. Pass `Shell.now` so `today` updates at
+    // midnight.
+    pure callback calendar(/* year */ int, /* month */ int, /* monday-first */ bool, /* now */ int) -> [CalendarDay];
+    // Month heading, e.g. "September 2026".
+    pure callback month-title(/* year */ int, /* month */ int) -> string;
 
     // ---- Actions ----
     // Left click on a task: activate it, or minimize it if it is already active.
