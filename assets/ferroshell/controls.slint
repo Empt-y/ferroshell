@@ -33,6 +33,7 @@ export component PanelButton inherits Rectangle {
     out property <bool> pressed: touch.pressed;
     callback clicked();
     callback middle-clicked();
+    callback double-clicked();
     callback right-clicked(/* x */ length, /* y */ length);
 
     border-radius: Theme.radius;
@@ -79,6 +80,7 @@ export component PanelButton inherits Rectangle {
     touch := TouchArea {
         enabled: root.enabled;
         clicked => { root.clicked(); }
+        double-clicked => { root.double-clicked(); }
         pointer-event(e) => {
             if e.kind == PointerEventKind.up {
                 if e.button == PointerEventButton.middle {

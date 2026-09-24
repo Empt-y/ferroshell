@@ -30,6 +30,8 @@ const MAX_WINDOWS: usize = 8;
 pub struct Hover {
     pub key: PanelKey,
     pub task_id: String,
+    /// A tray icon (shows its tooltip) rather than a task (shows window previews).
+    pub tray: bool,
     /// Hovered item's rectangle in panel coordinates (logical px): x, y, w, h.
     pub rect: [f64; 4],
 }
@@ -54,9 +56,17 @@ pub struct Thumbs {
 
 impl App {
     pub fn task_hover(&self, key: &PanelKey, id: &str, hovering: bool, rect: [f64; 4]) {
+        self.hover(key, id, false, hovering, rect);
+    }
+
+    pub fn tray_hover(&self, key: &PanelKey, id: &str, hovering: bool, rect: [f64; 4]) {
+        self.hover(key, id, true, hovering, rect);
+    }
+
+    fn hover(&self, key: &PanelKey, id: &str, tray: bool, hovering: bool, rect: [f64; 4]) {
         let t = &self.thumbnails;
         if hovering {
-            *t.hovered.borrow_mut() = Some(Hover { key: key.clone(), task_id: id.to_owned(), rect });
+            *t.hovered.borrow_mut() = Some(Hover { key: key.clone(), task_id: id.to_owned(), tray, rect });
             t.hide_timer.stop();
             let visible = t.popup.borrow().as_ref().is_some_and(|p| p.visible);
             if visible {
@@ -160,7 +170,18 @@ impl App {
         }
         let st = self.state.borrow();
         let Some(panel) = st.panels.iter().find(|p| p.key == hover.key) else { return };
-        let Some(task) = panel.tasks.find(&hover.task_id) else { return };
+        // What to show: a task's windows, or just a title (tray tooltip, pinned launcher).
+        let (windows, fallback_title, icon_img) = if hover.tray {
+            let mut tray = self.tray.borrow_mut();
+            let Some(icon) = tray.model.find(&hover.task_id).cloned() else { return };
+            let label = tray.label(&icon);
+            let img = tray.icons.get(&icon.icon_key()).cloned().unwrap_or_default();
+            (Vec::new(), label, img)
+        } else {
+            let Some(task) = panel.tasks.find(&hover.task_id) else { return };
+            let img = self.tasks.borrow().icons.get(&task.icon).cloned().unwrap_or_default();
+            (task.windows.iter().copied().take(MAX_WINDOWS).collect::<Vec<isize>>(), task.title.clone(), img)
+        };
         let scale = f64::from(panel.monitor.scale());
         let tasks = self.tasks.borrow();
 
@@ -195,7 +216,6 @@ impl App {
         let mut entries = Vec::new();
         let (mut cx, mut cy) = (PAD, PAD);
         let (mut max_w, mut max_h) = (0.0f64, 0.0f64);
-        let windows: Vec<isize> = task.windows.iter().copied().take(MAX_WINDOWS).collect();
         let mut rects = Vec::new();
         let items: Vec<Option<isize>> = if windows.is_empty() { vec![None] } else { windows.iter().map(|w| Some(*w)).collect() };
         for w in items {
@@ -205,13 +225,13 @@ impl App {
                     let k = (MAX_W / sw as f64).min(MAX_H / sh as f64).min(1.0 / scale);
                     ((sw as f64 * k).max(80.0), sh as f64 * k)
                 }
-                _ => (MAX_W, 0.0),
+                // Title only: size to the text.
+                _ => ((fallback_title.chars().count() as f64 * 7.0 + 48.0).clamp(80.0, 360.0), 0.0),
             };
             let title = w
                 .and_then(|h| tasks.windows.iter().find(|x| x.hwnd == h).map(|x| x.title.clone()))
-                .unwrap_or_else(|| task.title.clone());
-            let icon = tasks.icons.get(&task.icon).cloned().unwrap_or_default();
-            entries.push(entry(&title, icon, cx, cy, tw, th, w.is_some_and(|h| Some(h) == tasks.foreground)));
+                .unwrap_or_else(|| fallback_title.clone());
+            entries.push(entry(&title, icon_img.clone(), cx, cy, tw, th, w.is_some_and(|h| Some(h) == tasks.foreground)));
             if let Some(t) = thumb {
                 // Inset slightly so the thumbnail sits inside the entry's rounded background.
                 let r = Rect::new(
@@ -283,9 +303,13 @@ impl App {
         match hwnd {
             Some(h) => winops::activate(Hwnd(h)),
             None => {
-                // A launcher entry: behave like clicking the task.
+                // A title-only entry: behave like clicking the item itself.
                 if let Some(h) = self.thumbnails.hovered.borrow().clone() {
-                    self.activate_task(&h.key, &h.task_id);
+                    if h.tray {
+                        self.tray_click(&h.key, &h.task_id, "left", h.rect);
+                    } else {
+                        self.activate_task(&h.key, &h.task_id);
+                    }
                 }
             }
         }

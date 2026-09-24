@@ -28,8 +28,9 @@ are warnings: the widget still loads and the setting is ignored.
 
 | id | Settings |
 |---|---|
-| `org.ferroshell.launcher-button` | `action` (default `"start-menu"`) |
+| `org.ferroshell.launcher-button` | `action`: `"launcher"` (default) or `"start-menu"` (Windows Start) |
 | `org.ferroshell.taskmanager` | `show-titles`, `max-item-width`, `group`, `only-this-monitor`, `pinned` |
+| `org.ferroshell.systemtray` | `icon-scale`, `hidden` (patterns matched against tooltip or program name). Only works when Ferroshell replaces Explorer as the shell; alongside Explorer it stays empty |
 | `org.ferroshell.clock` | `format`, `date-format` ([strftime](https://docs.rs/chrono/latest/chrono/format/strftime/)), `show-date` |
 | `org.ferroshell.show-desktop` | — |
 | `org.ferroshell.spacer` | `size` (0 = expand) |
@@ -49,6 +50,26 @@ widget's `widget.toml`.
 - an `.exe` path. `%VARIABLES%` are expanded.
 
 Right-clicking a task and choosing **Pin to panel** writes the right form for you.
+
+## Launcher
+
+```toml
+[launcher]
+windows-key = true      # a lone Windows-key press opens Ferroshell's launcher
+width = 640             # logical pixels
+height = 620
+show-recent = true
+power-actions = ["lock", "sleep", "restart", "shutdown", "logout"]
+favourites = []         # app ids; right-click an app → Add to favourites
+web-search = ""         # e.g. "https://duckduckgo.com/?q={}" adds a web result
+```
+
+Search finds apps (by name, initials such as "vsc", or program name), Windows
+Settings pages ("bluetooth", "wallpaper"), and calculations ("12*(3+4)", `sqrt(2)`;
+Enter copies the result). `>command` runs in a command prompt. Paths, `\\server`
+shares, URLs and `shell:` locations open directly. Keys: arrows and Page Up/Down move,
+Enter opens, Ctrl+Enter runs as administrator, Tab/Shift+Tab switch category, Escape
+clears or closes. Changing the launcher section never rebuilds panels.
 
 ## Safe mode
 

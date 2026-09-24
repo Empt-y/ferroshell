@@ -84,6 +84,23 @@ export global Backend {
     callback preview-theme(int);
     callback apply-theme(int);
 
+    // Launcher.
+    in property <bool> l-windows-key;
+    in property <int> l-width;
+    in property <int> l-height;
+    in property <bool> l-show-recent;
+    in property <string> l-favourites;
+    in property <string> l-web-search;
+    in property <bool> l-lock;
+    in property <bool> l-sleep;
+    in property <bool> l-restart;
+    in property <bool> l-shutdown;
+    in property <bool> l-logout;
+    callback set-launcher-bool(string, bool);
+    callback set-launcher-int(string, int);
+    callback set-launcher-text(string, string);
+    callback set-power(string, bool);
+
     // Status and maintenance.
     in property <[PluginRow]> plugins;
     callback reload-shell();
@@ -333,6 +350,53 @@ component AppearancePage inherits VerticalBox {
     }
 }
 
+component LauncherPage inherits VerticalBox {
+    alignment: start;
+    SectionTitle { text: "Application launcher"; }
+    Switch {
+        text: "The Windows key opens Ferroshell's launcher";
+        checked: Backend.l-windows-key;
+        toggled => { Backend.set-launcher-bool("windows-key", self.checked); }
+    }
+    Hint { text: "Off: the Windows key opens the Windows Start menu. Win+E, Win+D and other shortcuts work either way."; }
+    Switch {
+        text: "Show recently used apps";
+        checked: Backend.l-show-recent;
+        toggled => { Backend.set-launcher-bool("show-recent", self.checked); }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        Text { text: "Size"; vertical-alignment: center; width: 80px; }
+        SpinBox { width: 120px; value: Backend.l-width; minimum: 300; maximum: 2000; edited(v) => { Backend.set-launcher-int("width", v); } }
+        Text { text: "×"; vertical-alignment: center; }
+        SpinBox { width: 120px; value: Backend.l-height; minimum: 300; maximum: 2000; edited(v) => { Backend.set-launcher-int("height", v); } }
+    }
+    SectionTitle { text: "Power buttons"; }
+    HorizontalLayout {
+        spacing: 12px;
+        alignment: start;
+        CheckBox { text: "Lock"; checked: Backend.l-lock; toggled => { Backend.set-power("lock", self.checked); } }
+        CheckBox { text: "Sleep"; checked: Backend.l-sleep; toggled => { Backend.set-power("sleep", self.checked); } }
+        CheckBox { text: "Restart"; checked: Backend.l-restart; toggled => { Backend.set-power("restart", self.checked); } }
+        CheckBox { text: "Shut down"; checked: Backend.l-shutdown; toggled => { Backend.set-power("shutdown", self.checked); } }
+        CheckBox { text: "Sign out"; checked: Backend.l-logout; toggled => { Backend.set-power("logout", self.checked); } }
+    }
+    SectionTitle { text: "Web search"; }
+    LineEdit {
+        text: Backend.l-web-search;
+        placeholder-text: "e.g. https://duckduckgo.com/?q={}  (empty = off)";
+        accepted(t) => { Backend.set-launcher-text("web-search", t); }
+    }
+    SectionTitle { text: "Favourites"; }
+    Hint { text: "App ids, one per line. Easier: right-click an app in the launcher and choose Add to favourites."; }
+    fav := TextEdit { text: Backend.l-favourites; min-height: 120px; wrap: no-wrap; }
+    HorizontalLayout {
+        alignment: start;
+        Button { text: "Save favourites"; clicked => { Backend.set-launcher-text("favourites", fav.text); } }
+    }
+}
+
 component StatusPage inherits VerticalBox {
     SectionTitle { text: "Shell"; }
     Text { text: Backend.shell-state; wrap: word-wrap; }
@@ -401,6 +465,7 @@ export component SettingsWindow inherits Window {
         }
         TabWidget {
             Tab { title: "Panels & widgets"; PanelsPage { } }
+            Tab { title: "Launcher"; LauncherPage { } }
             Tab { title: "Appearance"; AppearancePage { } }
             Tab { title: "Status"; StatusPage { } }
         }

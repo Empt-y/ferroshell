@@ -56,3 +56,12 @@ Widgets read these through the `Theme` global: `Theme.accent`, `Theme.radius`, a
 A theme can restyle any widget completely by including `widgets\<widget-id>\` (a full
 widget package; see [widget-api.md](widget-api.md)). Lookup order is: your
 `%APPDATA%\ferroshell\widgets`, then the active theme's `widgets`, then the built-ins.
+
+## Restyling the launcher and popups
+
+The launcher (`launcher.slint`) and the hover previews (`popups.slint`) are Slint files
+in `%LOCALAPPDATA%\ferroshell\builtin\ferroshell\`. To change their look, copy one to
+`%APPDATA%\ferroshell\library\` (yours) or to `<theme>\library\` (part of a theme), and
+change the imports at the top to `@ferroshell/api.slint`. Keep the exported component and
+its `Launcher` global. A copy that fails to compile is ignored: the built-in one is used
+instead and the error is logged.

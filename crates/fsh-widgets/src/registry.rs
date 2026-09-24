@@ -100,6 +100,8 @@ impl Registry {
     /// panels rebuilt.
     pub fn strip_shell_only(&self, config: &fsh_config::Config) -> fsh_config::Config {
         let mut c = config.clone();
+        // The launcher isn't part of any panel.
+        c.launcher = Default::default();
         for p in &mut c.panels {
             for w in &mut p.widgets {
                 if let Some(pkg) = self.packages.get(&w.id) {

@@ -2,20 +2,25 @@
 //! workspace that may use `unsafe`; everything it exports is safe to call.
 
 pub mod appbar;
+pub mod appsfolder;
+pub mod clipboard;
 pub mod com;
 pub mod console;
 pub mod crash;
 pub mod hotkey;
 pub mod icon;
 pub mod job;
+pub mod keyhook;
 pub mod menu;
 pub mod monitor;
 pub mod panel;
 pub mod process;
+pub mod session;
 pub mod shellhook;
 pub mod system;
 pub mod taskbar;
 pub mod thumbnail;
+pub mod tray;
 pub mod window;
 pub mod winevent;
 pub mod winfo;

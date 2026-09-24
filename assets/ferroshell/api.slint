@@ -26,6 +26,13 @@ export struct Task {
     count: int,
 }
 
+// An icon in the notification area (system tray).
+export struct TrayItem {
+    id: string,
+    icon: image,
+    tooltip: string,
+}
+
 export global Shell {
     // ---- Panel context ----
     in property <bool> vertical;
@@ -35,6 +42,8 @@ export global Shell {
 
     // ---- Data ----
     in property <[Task]> tasks;
+    // Notification-area icons (only filled on panels that have a system tray widget).
+    in property <[TrayItem]> tray;
     // Seconds since the Unix epoch; updated every second. Bind to it to refresh with time.
     in property <int> now;
     in property <bool> safe-mode;
@@ -60,6 +69,11 @@ export global Shell {
     // Hovering a task: `true` with the item's rectangle (panel-relative) to show a preview,
     // `false` to hide it.
     callback task-hover(/* id */ string, /* hovering */ bool, /* x */ length, /* y */ length, /* w */ length, /* h */ length);
+    // Click a tray icon: button is "left", "right", "middle" or "double". The rectangle is the
+    // icon's (panel-relative), used to place the app's menu.
+    callback tray-click(/* id */ string, /* button */ string, /* x */ length, /* y */ length, /* w */ length, /* h */ length);
+    // Hovering a tray icon (shows its tooltip).
+    callback tray-hover(/* id */ string, /* hovering */ bool, /* x */ length, /* y */ length, /* w */ length, /* h */ length);
     // Generic actions: "start-menu", "show-desktop", "settings", "launch" (arg: path or app id),
     // "plugin:<plugin-id>/<action>" (arg passed to the plugin), "script:<widget-instance>/<fn>".
     callback invoke(/* action */ string, /* arg */ string);

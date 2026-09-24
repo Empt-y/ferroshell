@@ -68,6 +68,39 @@ impl Composer {
         self.compile(source, path, component)
     }
 
+    /// Like [`Composer::compile_library`], but first tries `file` in each of
+    /// `override_dirs` (in priority order, e.g. the user's and the theme's `library`
+    /// folders). A broken override is skipped; its error is returned alongside the
+    /// result so it can be reported.
+    pub fn compile_library_with_overrides(
+        &self,
+        file: &str,
+        component: &str,
+        override_dirs: &[PathBuf],
+    ) -> (Result<ComponentDefinition, String>, Vec<String>) {
+        let mut errors = Vec::new();
+        for dir in override_dirs {
+            let path = dir.join(file);
+            if !path.is_file() {
+                continue;
+            }
+            let result = std::fs::read_to_string(&path)
+                .map_err(|e| e.to_string())
+                .and_then(|src| self.compile(src, path.clone(), component));
+            match result {
+                Ok(def) => {
+                    tracing::info!("using {} override from {}", file, path.display());
+                    return (Ok(def), errors);
+                }
+                Err(e) => {
+                    tracing::error!("{} override is broken; using the built-in one:\n{e}", path.display());
+                    errors.push(format!("{}: {e}", path.display()));
+                }
+            }
+        }
+        (self.compile_library(file, component), errors)
+    }
+
     fn compile(&self, source: String, virtual_path: PathBuf, component: &str) -> Result<ComponentDefinition, String> {
         let result = spin_on::spin_on(self.compiler().build_from_source(source, virtual_path));
         let errors: Vec<String> = result
@@ -309,6 +342,30 @@ mod tests {
         let (composer, _, _) = setup("popups");
         let def = composer.compile_library("popups.slint", "PreviewPopup").unwrap();
         assert!(def.globals().any(|g| g == "Theme"));
+        let def = composer.compile_library("launcher.slint", "LauncherWindow").unwrap();
+        assert!(def.globals().any(|g| g == "Launcher"));
+        assert!(def.functions().any(|f| f == "focus-search"));
+    }
+
+    #[test]
+    fn library_overrides_win_and_broken_ones_fall_back() {
+        let (composer, _, layout) = setup("overrides");
+        let dir = layout.user.join("library");
+        std::fs::create_dir_all(&dir).unwrap();
+        // A broken override: the built-in is used instead, and the error is reported.
+        std::fs::write(dir.join("popups.slint"), "export component PreviewPopup { oops }").unwrap();
+        let (def, errors) = composer.compile_library_with_overrides("popups.slint", "PreviewPopup", std::slice::from_ref(&dir));
+        assert!(def.is_ok());
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        // A working override is used.
+        std::fs::write(
+            dir.join("popups.slint"),
+            "import { Theme } from \"@ferroshell/api.slint\";\nexport { Theme }\nexport component PreviewPopup inherits Window { in property <string> marker: \"custom\"; }",
+        )
+        .unwrap();
+        let (def, errors) = composer.compile_library_with_overrides("popups.slint", "PreviewPopup", &[dir]);
+        assert!(errors.is_empty());
+        assert!(def.unwrap().properties().any(|(p, _)| p == "marker"));
     }
 
     #[test]

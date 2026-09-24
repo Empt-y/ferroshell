@@ -1,0 +1,46 @@
+import { Shell, Theme, TrayItem } from "@ferroshell/api.slint";
+import { PanelButton } from "@ferroshell/controls.slint";
+
+component TrayButton inherits PanelButton {
+    in property <TrayItem> item;
+    in property <length> icon-size;
+    content-padding: 0;
+
+    clicked => { Shell.tray-click(root.item.id, "left", self.absolute-position.x, self.absolute-position.y, self.width, self.height); }
+    double-clicked => { Shell.tray-click(root.item.id, "double", self.absolute-position.x, self.absolute-position.y, self.width, self.height); }
+    middle-clicked => { Shell.tray-click(root.item.id, "middle", self.absolute-position.x, self.absolute-position.y, self.width, self.height); }
+    right-clicked(x, y) => { Shell.tray-click(root.item.id, "right", self.absolute-position.x, self.absolute-position.y, self.width, self.height); }
+    changed hovered => {
+        Shell.tray-hover(root.item.id, self.hovered, self.absolute-position.x, self.absolute-position.y, self.width, self.height);
+    }
+
+    Image {
+        source: root.item.icon;
+        width: root.icon-size;
+        height: root.icon-size;
+    }
+}
+
+export component Widget inherits Rectangle {
+    in property <int> icon-scale: 70;
+
+    property <length> icon: Theme.icon-size * root.icon-scale / 100;
+    // Square cells a bit larger than the icon, so they're easy to hit.
+    property <length> cell: root.icon + 10px;
+
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    preferred-width: Shell.vertical ? 0 : Shell.tray.length * root.cell;
+    preferred-height: Shell.vertical ? Shell.tray.length * root.cell : 0;
+    min-width: self.preferred-width;
+    min-height: self.preferred-height;
+
+    for item[i] in Shell.tray: TrayButton {
+        item: item;
+        icon-size: root.icon;
+        x: Shell.vertical ? 0 : i * root.cell;
+        y: Shell.vertical ? i * root.cell : 0;
+        width: Shell.vertical ? root.width : root.cell;
+        height: Shell.vertical ? root.cell : root.height;
+    }
+}

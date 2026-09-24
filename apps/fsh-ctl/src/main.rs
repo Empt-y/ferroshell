@@ -18,6 +18,7 @@ Session (supervisor):
 
 Shell:
   ping                   check the shell is responsive
+  launcher               open or close the application launcher
   shell <method> [json]  send any method to the shell, e.g. `fsh-ctl shell status`
   debug crash            make the shell crash (tests recovery)
   debug hang [secs]      freeze the shell's UI thread (tests the hang watchdog)
@@ -57,6 +58,7 @@ fn run(args: &[String]) -> anyhow::Result<Value> {
         (Some(m @ ("start" | "stop" | "restart" | "quit")), _) => session(m, Value::Null),
         (Some("safe-mode"), on) => session("safe_mode", json!({"on": on != Some("off")})),
         (Some("ping"), _) => shell("ping", Value::Null),
+        (Some("launcher"), _) => shell("launcher", Value::Null),
         (Some("debug"), Some("crash")) => shell("debug.crash", Value::Null),
         (Some("debug"), Some("hang")) => {
             let secs: u64 = arg(2).map(str::parse).transpose()?.unwrap_or(60);

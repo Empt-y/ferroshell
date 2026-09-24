@@ -17,6 +17,7 @@ use slint_interpreter::{ComponentInstance, Value};
 
 use crate::app;
 use crate::taskbar::PanelTasks;
+use crate::traybar::PanelTray;
 
 /// Identifies "the same panel" across rebuilds, so its app bar can be reused (re-registering
 /// makes every maximized window on the monitor jump).
@@ -41,6 +42,7 @@ pub struct Panel {
     pub rect: Rect,
     pub fullscreen_app: Rc<Cell<bool>>,
     pub tasks: PanelTasks,
+    pub tray: PanelTray,
 }
 
 pub struct Build<'a> {
@@ -54,6 +56,7 @@ pub struct Build<'a> {
     pub safe_mode: bool,
     pub config_error: &'a str,
     pub tasks: PanelTasks,
+    pub tray: PanelTray,
     pub reuse_appbar: Option<ReusableAppBar>,
 }
 
@@ -81,6 +84,7 @@ pub fn create(b: Build<'_>) -> anyhow::Result<(Panel, Vec<WidgetStatus>)> {
     let instance = def.create()?;
 
     bind_shell(&instance, &b.key, b.config, b.safe_mode, b.config_error, ModelRc::from(b.tasks.model.clone()));
+    let _ = instance.set_global_property("Shell", "tray", Value::Model(ModelRc::from(b.tray.model.clone())));
     theme_binding::apply(&instance, b.theme, b.accent);
 
     let (appbar, hwnd_cell, fullscreen) = match b.reuse_appbar {
@@ -114,6 +118,7 @@ pub fn create(b: Build<'_>) -> anyhow::Result<(Panel, Vec<WidgetStatus>)> {
         rect: Rect::default(),
         fullscreen_app: fullscreen,
         tasks: b.tasks,
+        tray: b.tray,
     };
     panel.place(b.theme);
 
@@ -272,8 +277,22 @@ fn bind_shell(instance: &ComponentInstance, key: &PanelKey, config: &PanelConfig
         app::with(|a| a.task_hover(&k, &text(args, 0), hovering, rect));
         Value::Void
     }));
-    callback("invoke", Box::new(|args| {
-        crate::actions::invoke(&text(args, 0), &text(args, 1));
+    let k = key.clone();
+    callback("tray-click", Box::new(move |args| {
+        let rect = [num(args, 2), num(args, 3), num(args, 4), num(args, 5)];
+        app::with(|a| a.tray_click(&k, &text(args, 0), &text(args, 1), rect));
+        Value::Void
+    }));
+    let k = key.clone();
+    callback("tray-hover", Box::new(move |args| {
+        let hovering = matches!(args.get(1), Some(Value::Bool(true)));
+        let rect = [num(args, 2), num(args, 3), num(args, 4), num(args, 5)];
+        app::with(|a| a.tray_hover(&k, &text(args, 0), hovering, rect));
+        Value::Void
+    }));
+    let k = key.clone();
+    callback("invoke", Box::new(move |args| {
+        app::with(|a| a.invoke_from_panel(&k, &text(args, 0), &text(args, 1)));
         Value::Void
     }));
 }

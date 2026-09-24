@@ -94,7 +94,9 @@ stretch.
 | `invoke(action, arg)` | shell actions (below) |
 
 `Shell.invoke` actions:
-- `"start-menu"`
+- `"launcher"`: opens Ferroshell's launcher (from a panel widget, pass the widget's
+  `"x,y,w,h"` as the argument to open it next to the widget).
+- `"start-menu"`: the Windows Start menu.
 - `"show-desktop"`
 - `"settings"`
 - `"launch"`: the argument is a program, file, URL or `shell:` path.

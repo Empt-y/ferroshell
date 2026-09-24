@@ -1,0 +1,338 @@
+// The application launcher (Kickoff-style start menu).
+//
+// Restyle it by copying this file to %APPDATA%\ferroshell\library\launcher.slint (or a
+// theme's library\ folder). Overrides should import the API as
+// `import { Theme } from "@ferroshell/api.slint";`. The shell does navigation, search
+// and launching; this file only presents `Launcher` and calls its callbacks.
+
+import { Theme } from "api.slint";
+export { Theme }
+
+// A row in the list. `kind`: "app", "calculator", "run", "setting", "web" or "header"
+// (an A–Z section title; not selectable).
+export struct LauncherItem {
+    id: string,
+    title: string,
+    subtitle: string,
+    icon: image,
+    kind: string,
+    favourite: bool,
+}
+
+export struct LauncherCategory {
+    name: string,
+}
+
+export struct LauncherPower {
+    id: string,
+    label: string,
+}
+
+export global Launcher {
+    in property <string> user-name;
+    in property <string> initials;
+    in property <image> avatar;
+    in property <bool> has-avatar;
+
+    in property <[LauncherCategory]> categories;
+    in property <int> category;
+    in property <bool> searching;
+    in property <string> heading;
+    in property <[LauncherItem]> items;
+    in-out property <int> selected;
+    in property <string> empty-text;
+
+    in property <[LauncherPower]> power-actions;
+    // The action waiting for "Yes/Cancel", or "".
+    in property <string> confirm;
+    in property <string> confirm-text;
+
+    callback search(/* text */ string);
+    callback select-category(/* index */ int);
+    // Launch/open the item; `admin` = run as administrator (Ctrl+Enter).
+    callback activate(/* index */ int, /* admin */ bool);
+    // Right-click on an item, at a position relative to the window.
+    callback context(/* index */ int, /* x */ length, /* y */ length);
+    // "up", "down", "page-up", "page-down", "home", "end", "next-category", "prev-category"
+    callback navigate(/* key */ string);
+    callback escape();
+    callback power(/* action id */ string);
+    callback confirm-power(/* yes */ bool);
+}
+
+component FlatButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> primary;
+    callback clicked();
+    height: 30px;
+    min-width: label.preferred-width + 20px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : root.primary ? Theme.highlight : transparent;
+    label := Text {
+        text: root.text;
+        color: Theme.foreground;
+        font-size: Theme.font-size * 0.95;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+export component LauncherWindow inherits Window {
+    title: "Ferroshell Launcher";
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+    default-font-size: Theme.font-size;
+    default-font-family: Theme.font-family;
+
+    property <length> row-height: 42px;
+
+    public function focus-search() {
+        search.focus();
+        search.select-all();
+    }
+    public function clear-search() {
+        search.text = "";
+    }
+    public function scroll-top() {
+        list.viewport-y = 0;
+    }
+
+    Rectangle {
+        background: Theme.popup-background;
+        border-radius: 10px;
+        border-width: 1px;
+        border-color: Theme.panel-border;
+    }
+
+    FocusScope {
+        capture-key-pressed(e) => {
+            if e.text == Key.UpArrow { Launcher.navigate("up"); return accept; }
+            if e.text == Key.DownArrow { Launcher.navigate("down"); return accept; }
+            if e.text == Key.PageUp { Launcher.navigate("page-up"); return accept; }
+            if e.text == Key.PageDown { Launcher.navigate("page-down"); return accept; }
+            if e.text == Key.Tab && e.modifiers.shift { Launcher.navigate("prev-category"); return accept; }
+            if e.text == Key.Tab { Launcher.navigate("next-category"); return accept; }
+            if e.text == Key.Escape { Launcher.escape(); return accept; }
+            if e.text == Key.Return {
+                Launcher.activate(Launcher.selected, e.modifiers.control);
+                return accept;
+            }
+            reject
+        }
+
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+
+            // Who's logged in.
+            HorizontalLayout {
+                spacing: 10px;
+                height: 40px;
+                Rectangle {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 18px;
+                    clip: true;
+                    background: Theme.accent;
+                    if Launcher.has-avatar: Image {
+                        source: Launcher.avatar;
+                        width: parent.width;
+                        height: parent.height;
+                        image-fit: cover;
+                    }
+                    if !Launcher.has-avatar: Text {
+                        text: Launcher.initials;
+                        color: #ffffff;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+                Text {
+                    text: Launcher.user-name;
+                    color: Theme.foreground;
+                    font-size: Theme.font-size * 1.1;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+
+            // Search box: always focused; typing anywhere searches.
+            Rectangle {
+                height: 38px;
+                border-radius: 6px;
+                background: Theme.hover;
+                border-width: 1px;
+                border-color: search.has-focus ? Theme.accent : Theme.panel-border;
+                HorizontalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    search := TextInput {
+                        color: Theme.foreground;
+                        font-size: Theme.font-size * 1.05;
+                        vertical-alignment: center;
+                        single-line: true;
+                        selection-background-color: Theme.highlight;
+                        edited => { Launcher.search(self.text); }
+                    }
+                }
+                if search.text == "": Text {
+                    x: 12px;
+                    text: "Type to search apps, settings, math, or >commands";
+                    color: Theme.foreground-dim;
+                    vertical-alignment: center;
+                    height: parent.height;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: 12px;
+                vertical-stretch: 1;
+
+                // Categories.
+                sidebar := Flickable {
+                    width: 180px;
+                    viewport-height: Launcher.categories.length * 34px;
+                    for c[i] in Launcher.categories: Rectangle {
+                        y: i * 34px;
+                        height: 32px;
+                        width: sidebar.width;
+                        border-radius: 6px;
+                        background: i == Launcher.category && !Launcher.searching ? Theme.highlight : cat-touch.has-hover ? Theme.hover : transparent;
+                        cat-touch := TouchArea { clicked => { Launcher.select-category(i); } }
+                        Text {
+                            x: 10px;
+                            width: parent.width - 20px;
+                            height: parent.height;
+                            text: c.name;
+                            color: Theme.foreground;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+                }
+
+                // Items.
+                VerticalLayout {
+                    spacing: 6px;
+                    Text {
+                        text: Launcher.heading;
+                        color: Theme.foreground-dim;
+                        font-size: Theme.font-size * 0.9;
+                    }
+                    list := Flickable {
+                        vertical-stretch: 1;
+                        viewport-height: Launcher.items.length * root.row-height;
+                        property <int> sel: Launcher.selected;
+                        // Keep the selected row in view.
+                        changed sel => {
+                            if self.sel * root.row-height < -self.viewport-y {
+                                self.viewport-y = -self.sel * root.row-height;
+                            } else if (self.sel + 1) * root.row-height > -self.viewport-y + self.height {
+                                self.viewport-y = -((self.sel + 1) * root.row-height - self.height);
+                            }
+                        }
+
+                        for it[i] in Launcher.items: Rectangle {
+                            y: i * root.row-height;
+                            height: root.row-height;
+                            width: list.width;
+                            border-radius: 6px;
+                            background: it.kind == "header" ? transparent : i == Launcher.selected ? Theme.highlight : transparent;
+
+                            item-touch := TouchArea {
+                                enabled: it.kind != "header";
+                                changed has-hover => {
+                                    if self.has-hover { Launcher.selected = i; }
+                                }
+                                clicked => { Launcher.activate(i, false); }
+                                pointer-event(e) => {
+                                    if e.button == PointerEventButton.right && e.kind == PointerEventKind.up {
+                                        Launcher.context(i, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+                                    }
+                                }
+                            }
+
+                            if it.kind == "header": Text {
+                                x: 10px;
+                                height: parent.height - 4px;
+                                text: it.title;
+                                color: Theme.accent;
+                                font-weight: 700;
+                                vertical-alignment: bottom;
+                            }
+                            if it.kind != "header": HorizontalLayout {
+                                padding-left: 8px;
+                                padding-right: 10px;
+                                spacing: 10px;
+                                VerticalLayout {
+                                    alignment: center;
+                                    Image {
+                                        source: it.icon;
+                                        width: 28px;
+                                        height: 28px;
+                                    }
+                                }
+                                VerticalLayout {
+                                    alignment: center;
+                                    horizontal-stretch: 1;
+                                    Text {
+                                        text: it.title;
+                                        color: Theme.foreground;
+                                        overflow: elide;
+                                    }
+                                    if it.subtitle != "": Text {
+                                        text: it.subtitle;
+                                        color: Theme.foreground-dim;
+                                        font-size: Theme.font-size * 0.82;
+                                        overflow: elide;
+                                    }
+                                }
+                                if it.favourite: Text {
+                                    text: "★";
+                                    color: Theme.accent;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                    }
+                    if Launcher.items.length == 0: Text {
+                        text: Launcher.empty-text;
+                        color: Theme.foreground-dim;
+                        horizontal-alignment: center;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+
+            // Session and power.
+            HorizontalLayout {
+                height: 32px;
+                spacing: 6px;
+                alignment: end;
+                if Launcher.confirm != "": Text {
+                    text: Launcher.confirm-text;
+                    color: Theme.foreground;
+                    vertical-alignment: center;
+                }
+                if Launcher.confirm != "": FlatButton {
+                    text: "Yes";
+                    primary: true;
+                    clicked => { Launcher.confirm-power(true); }
+                }
+                if Launcher.confirm != "": FlatButton {
+                    text: "Cancel";
+                    clicked => { Launcher.confirm-power(false); }
+                }
+                if Launcher.confirm == "": Rectangle { horizontal-stretch: 1; }
+                for p in Launcher.confirm == "" ? Launcher.power-actions : []: FlatButton {
+                    text: p.label;
+                    clicked => { Launcher.power(p.id); }
+                }
+            }
+        }
+    }
+}

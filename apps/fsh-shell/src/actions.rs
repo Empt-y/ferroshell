@@ -26,6 +26,9 @@ pub fn invoke(action: &str, arg: &str) {
     }
     match action {
         "start-menu" => fsh_win::system::tap_windows_key(),
+        "launcher" => {
+            app::with(|a| a.toggle_launcher(crate::launcher::Anchor::Cursor));
+        }
         "show-desktop" => {
             app::with(|a| a.toggle_desktop());
         }
@@ -39,9 +42,14 @@ pub fn invoke(action: &str, arg: &str) {
 /// Open an app, file or `shell:` target on a worker thread (the shell can block while it
 /// talks to the target app).
 pub fn launch(target: String) {
+    launch_verb(target, None, "open");
+}
+
+/// [`launch`] with arguments and a shell verb (`runas` = as administrator).
+pub fn launch_verb(target: String, args: Option<String>, verb: &'static str) {
     let spawned = std::thread::Builder::new().name("launch".into()).spawn(move || {
         let _com = fsh_win::com::ComGuard::new();
-        match fsh_win::winops::launch(&target, None) {
+        match fsh_win::winops::launch_verb(&target, args.as_deref(), verb) {
             Ok(()) => tracing::info!("launched {target}"),
             Err(e) => tracing::warn!("{e:#}"),
         }

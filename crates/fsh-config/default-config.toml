@@ -25,6 +25,22 @@ floating = false
 widgets = [
     { id = "org.ferroshell.launcher-button" },
     { id = "org.ferroshell.taskmanager" },
+    { id = "org.ferroshell.systemtray" },
     { id = "org.ferroshell.clock", format = "%H:%M", date-format = "%d/%m/%Y" },
     { id = "org.ferroshell.show-desktop" },
 ]
+
+# The application launcher (start menu). All keys are optional.
+[launcher]
+# A lone Windows-key press opens this launcher instead of the Windows Start menu.
+windows-key = true
+# Size in logical pixels.
+width = 640
+height = 620
+show-recent = true
+# Any of "lock", "sleep", "restart", "shutdown", "logout".
+power-actions = ["lock", "sleep", "restart", "shutdown", "logout"]
+# Right-click an app in the launcher and choose "Add to favourites" to fill this.
+favourites = []
+# Optional web search as the last result, e.g. "https://duckduckgo.com/?q={}".
+web-search = ""

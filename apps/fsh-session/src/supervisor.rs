@@ -60,6 +60,7 @@ struct Inner {
 
 pub struct Supervisor {
     opts: Options,
+    hotkey: Mutex<Option<&'static str>>,
     inner: Mutex<Inner>,
     cv: Condvar,
 }
@@ -70,6 +71,7 @@ impl Supervisor {
         policy.reset(opts.safe_mode);
         Self {
             opts,
+            hotkey: Mutex::new(None),
             inner: Mutex::new(Inner {
                 want: Want::Run,
                 policy,
@@ -128,6 +130,12 @@ impl Supervisor {
         }
     }
 
+    pub fn set_emergency_hotkey(&self, name: Option<&'static str>) {
+        if let Ok(mut h) = self.hotkey.lock() {
+            *h = name;
+        }
+    }
+
     /// PID and uptime of the running shell, if any.
     pub fn running_child(&self) -> Option<(u32, Duration)> {
         let g = self.lock();
@@ -167,6 +175,7 @@ impl Supervisor {
             "recent_crashes": g.policy.recent_crashes(),
             "last_exit": g.last_exit,
             "replace_mode": self.opts.replace,
+            "emergency_hotkey": self.hotkey.lock().ok().and_then(|h| *h),
         })
     }
 

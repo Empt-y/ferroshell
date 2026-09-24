@@ -2,4 +2,6 @@
 //! be unit-tested without a desktop.
 
 pub mod geometry;
+pub mod launcher;
 pub mod tasks;
+pub mod tray;

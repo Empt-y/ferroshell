@@ -123,14 +123,24 @@ fn run(opts: Options) -> anyhow::Result<()> {
     )?;
     win.set_timer(TIMER_ENFORCE_HIDDEN, 1000);
 
-    if let Err(e) = hotkey::register(
-        win.hwnd(),
-        HOTKEY_EMERGENCY,
-        Modifiers { ctrl: true, alt: true, shift: true, win: false },
-        u32::from(b'E'),
-    ) {
-        tracing::warn!("emergency hotkey unavailable: {e:#}");
+    // The emergency hotkey must work, so fall back if another program already uses it.
+    let mods = Modifiers { ctrl: true, alt: true, shift: true, win: false };
+    let candidates: [(u32, &str); 3] = [(u32::from(b'E'), "Ctrl+Alt+Shift+E"), (0x7B, "Ctrl+Alt+Shift+F12"), (u32::from(b'Q'), "Ctrl+Alt+Shift+Q")];
+    let mut active = None;
+    for (vk, name) in candidates {
+        match hotkey::register(win.hwnd(), HOTKEY_EMERGENCY, mods, vk) {
+            Ok(()) => {
+                active = Some(name);
+                break;
+            }
+            Err(e) => tracing::warn!("emergency hotkey {name} unavailable: {e:#}"),
+        }
     }
+    match active {
+        Some(name) => tracing::info!("emergency hotkey: {name}"),
+        None => tracing::error!("no emergency hotkey could be registered; use `fsh-ctl restore-explorer`, or `fsh-ctl stop`"),
+    }
+    sup.set_emergency_hotkey(active);
 
     let sup_c = sup.clone();
     console::on_console_close(move || sup_c.restore_desktop());

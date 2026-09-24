@@ -117,7 +117,8 @@ fn bitmap_pixels(hbm: HBITMAP) -> Option<(u32, u32, Vec<u8>)> {
     }
 }
 
-fn hicon_to_rgba(hicon: HICON) -> Option<RgbaImage> {
+/// Convert an icon handle to pixels. The handle is only read, never destroyed.
+pub fn hicon_to_rgba(hicon: HICON) -> Option<RgbaImage> {
     unsafe {
         let mut ii = ICONINFO::default();
         GetIconInfo(hicon, &mut ii).ok()?;

@@ -17,7 +17,42 @@ pub struct Config {
     pub theme: String,
     #[serde(default, rename = "panel")]
     pub panels: Vec<PanelConfig>,
+    #[serde(default)]
+    pub launcher: LauncherConfig,
 }
+
+/// The application launcher (start menu).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case", default)]
+pub struct LauncherConfig {
+    /// A lone Windows-key press opens the launcher instead of the Windows Start menu.
+    pub windows_key: bool,
+    pub width: u32,
+    pub height: u32,
+    /// App ids (as shown by the launcher), in order.
+    pub favourites: Vec<String>,
+    pub show_recent: bool,
+    pub power_actions: Vec<String>,
+    /// Web search URL with `{}` for the query; empty disables web results.
+    pub web_search: String,
+}
+
+impl Default for LauncherConfig {
+    fn default() -> Self {
+        Self {
+            windows_key: true,
+            width: 640,
+            height: 620,
+            favourites: vec![],
+            show_recent: true,
+            power_actions: POWER_ACTIONS.iter().map(|s| (*s).to_owned()).collect(),
+            web_search: String::new(),
+        }
+    }
+}
+
+pub const POWER_ACTIONS: &[&str] = &["lock", "sleep", "restart", "shutdown", "logout"];
+pub const LAUNCHER_SIZE_RANGE: std::ops::RangeInclusive<u32> = 300..=2000;
 
 fn default_theme() -> String {
     "breeze-dark".to_owned()
@@ -133,7 +168,12 @@ impl Config {
     pub fn defaults() -> Self {
         // The shipped default is covered by a unit test, so this cannot fail in practice;
         // fall back to a bare config rather than panicking just in case.
-        Self::parse(DEFAULT_CONFIG).unwrap_or(Config { version: CURRENT_VERSION, theme: default_theme(), panels: vec![] })
+        Self::parse(DEFAULT_CONFIG).unwrap_or(Config {
+            version: CURRENT_VERSION,
+            theme: default_theme(),
+            panels: vec![],
+            launcher: LauncherConfig::default(),
+        })
     }
 
     fn validate(&self) -> Result<(), ConfigError> {
@@ -152,6 +192,17 @@ impl Config {
                     return Err(ConfigError(format!("panel {n}: a widget has an empty id")));
                 }
             }
+        }
+        let l = &self.launcher;
+        if !LAUNCHER_SIZE_RANGE.contains(&l.width) || !LAUNCHER_SIZE_RANGE.contains(&l.height) {
+            return Err(ConfigError(format!(
+                "launcher: width and height must be within {}..={}",
+                LAUNCHER_SIZE_RANGE.start(),
+                LAUNCHER_SIZE_RANGE.end()
+            )));
+        }
+        if let Some(bad) = l.power_actions.iter().find(|a| !POWER_ACTIONS.contains(&a.as_str())) {
+            return Err(ConfigError(format!("launcher: unknown power action `{bad}` (use {POWER_ACTIONS:?})")));
         }
         if self.theme.trim().is_empty() {
             return Err(ConfigError("theme must not be empty".into()));
@@ -268,6 +319,18 @@ mod tests {
         assert_eq!(c.panels[0].edge, Edge::Left);
         assert_eq!(c.panels[0].monitor, MonitorSel::Index(1));
         assert_eq!(c.panels[0].thickness, 44);
+    }
+
+    #[test]
+    fn launcher_section() {
+        let c = Config::parse("[launcher]\nwindows-key = false\nfavourites = ['a', 'b']").unwrap();
+        assert!(!c.launcher.windows_key);
+        assert_eq!(c.launcher.favourites, ["a", "b"]);
+        assert_eq!(c.launcher.width, 640, "defaults fill the rest");
+        assert_eq!(Config::parse("").unwrap().launcher, LauncherConfig::default());
+        assert!(Config::parse("[launcher]\nwidth = 10").unwrap_err().0.contains("width"));
+        assert!(Config::parse("[launcher]\npower-actions = ['explode']").unwrap_err().0.contains("explode"));
+        assert!(Config::parse("[launcher]\nwinkey = true").is_err(), "typos are caught");
     }
 
     #[test]

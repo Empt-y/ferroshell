@@ -61,3 +61,12 @@ pub fn tap_windows_key() {
         SendInput(&inputs, size_of::<INPUT>() as i32);
     }
 }
+
+/// The mouse cursor's position in screen pixels.
+pub fn cursor_pos() -> (i32, i32) {
+    let mut p = windows::Win32::Foundation::POINT::default();
+    unsafe {
+        let _ = windows::Win32::UI::WindowsAndMessaging::GetCursorPos(&mut p);
+    }
+    (p.x, p.y)
+}

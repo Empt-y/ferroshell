@@ -76,11 +76,14 @@ pub struct MessageWindow {
 impl MessageWindow {
     pub fn new(title: &str, proc_: WndProc) -> anyhow::Result<Self> {
         static COUNTER: AtomicU32 = AtomicU32::new(0);
-        let class_name = wide(&format!(
-            "Ferroshell.MessageWindow.{}.{}",
-            std::process::id(),
-            COUNTER.fetch_add(1, Ordering::Relaxed)
-        ));
+        let class = format!("Ferroshell.MessageWindow.{}.{}", std::process::id(), COUNTER.fetch_add(1, Ordering::Relaxed));
+        Self::with_class(&class, title, proc_)
+    }
+
+    /// Like [`MessageWindow::new`] with a specific window class name (e.g. `Shell_TrayWnd`,
+    /// which other programs look windows up by). The class is registered once per process.
+    pub fn with_class(class: &str, title: &str, proc_: WndProc) -> anyhow::Result<Self> {
+        let class_name = wide(class);
         let title = wide(title);
         unsafe {
             let instance = GetModuleHandleW(None).context("GetModuleHandleW")?;
@@ -92,7 +95,11 @@ impl MessageWindow {
                 ..Default::default()
             };
             if RegisterClassExW(&class) == 0 {
-                return Err(windows::core::Error::from_thread()).context("RegisterClassExW");
+                let err = windows::core::Error::from_thread();
+                // Already registered by an earlier window of this class: fine.
+                if err.code() != windows::Win32::Foundation::ERROR_CLASS_ALREADY_EXISTS.to_hresult() {
+                    return Err(err).context("RegisterClassExW");
+                }
             }
             let boxed: Box<WndProc> = Box::new(proc_);
             let param = Box::into_raw(boxed);
@@ -190,6 +197,32 @@ pub fn run_message_loop() -> i32 {
     msg.wParam.0 as i32
 }
 
+/// Dispatch this thread's messages for duration (for threads without a message loop,
+/// e.g. tests). Returns early if WM_QUIT arrives.
+pub fn pump_for(duration: std::time::Duration) {
+    use windows::Win32::UI::WindowsAndMessaging::{MsgWaitForMultipleObjects, PM_REMOVE, PeekMessageW, QS_ALLINPUT, WM_QUIT};
+    let deadline = std::time::Instant::now() + duration;
+    let mut msg = MSG::default();
+    loop {
+        unsafe {
+            while PeekMessageW(&mut msg, None, 0, 0, PM_REMOVE).as_bool() {
+                if msg.message == WM_QUIT {
+                    return;
+                }
+                let _ = TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+        }
+        let left = deadline.saturating_duration_since(std::time::Instant::now());
+        if left.is_zero() {
+            return;
+        }
+        unsafe {
+            MsgWaitForMultipleObjects(None, false, left.as_millis().min(100) as u32, QS_ALLINPUT);
+        }
+    }
+}
+
 /// Ask the current thread's message loop to exit.
 pub fn post_quit(code: i32) {
     unsafe { PostQuitMessage(code) }
@@ -206,6 +239,27 @@ pub fn setting_change_area(lparam: isize) -> Option<String> {
         return None;
     }
     unsafe { PCWSTR(lparam as *const u16).to_string().ok() }
+}
+
+/// Every top-level window of a class, found the way `FindWindow` finds them. Unlike
+/// `EnumWindows`, this also sees shell windows kept in special z-order bands (on recent
+/// Windows 11 builds Explorer's taskbar can be one of them).
+pub fn find_all_by_class(class: &str) -> Vec<Hwnd> {
+    use windows::Win32::UI::WindowsAndMessaging::FindWindowExW;
+    let class_w = wide(class);
+    let mut out = Vec::new();
+    let mut after: Option<HWND> = None;
+    for _ in 0..64 {
+        let found = unsafe { FindWindowExW(None, after, PCWSTR(class_w.as_ptr()), PCWSTR::null()) };
+        match found {
+            Ok(h) if !h.is_invalid() => {
+                out.push(Hwnd::from_raw(h));
+                after = Some(h);
+            }
+            _ => break,
+        }
+    }
+    out
 }
 
 /// Register (or look up) a system-wide message id by name, e.g. `"TaskbarCreated"`.

@@ -7,12 +7,11 @@
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use windows::Win32::Foundation::{HWND, LPARAM};
+use windows::Win32::Foundation::LPARAM;
 use windows::Win32::UI::Shell::{ABM_GETSTATE, ABM_SETSTATE, ABS_AUTOHIDE, APPBARDATA, SHAppBarMessage};
 use windows::Win32::UI::WindowsAndMessaging::{
-    EnumWindows, GetClassNameW, IsWindowVisible, SW_HIDE, SW_SHOWNA, ShowWindow,
+    IsWindowVisible, SW_HIDE, SW_SHOWNA, ShowWindow,
 };
-use windows::core::BOOL;
 
 use crate::Hwnd;
 
@@ -24,29 +23,13 @@ struct SavedState {
     autohide: bool,
 }
 
-fn class_name(hwnd: HWND) -> String {
-    let mut buf = [0u16; 64];
-    let n = unsafe { GetClassNameW(hwnd, &mut buf) };
-    String::from_utf16_lossy(&buf[..n.max(0) as usize])
-}
-
 /// Explorer's taskbar windows: the primary one first, then one per secondary monitor.
 pub fn taskbar_windows() -> Vec<Hwnd> {
-    unsafe extern "system" fn collect(hwnd: HWND, lparam: LPARAM) -> BOOL {
-        let out = unsafe { &mut *(lparam.0 as *mut Vec<(bool, Hwnd)>) };
-        match class_name(hwnd).as_str() {
-            PRIMARY_CLASS => out.push((true, Hwnd::from_raw(hwnd))),
-            SECONDARY_CLASS => out.push((false, Hwnd::from_raw(hwnd))),
-            _ => {}
-        }
-        BOOL(1)
-    }
-    let mut found: Vec<(bool, Hwnd)> = Vec::new();
-    unsafe {
-        let _ = EnumWindows(Some(collect), LPARAM(&mut found as *mut _ as isize));
-    }
-    found.sort_by_key(|(primary, _)| !primary);
-    found.into_iter().map(|(_, h)| h).collect()
+    // Our own tray window shares Explorer's class; never treat it as Explorer's taskbar.
+    let not_ours = |h: &Hwnd| !crate::tray::is_our_tray(*h);
+    let mut out: Vec<Hwnd> = crate::window::find_all_by_class(PRIMARY_CLASS).into_iter().filter(not_ours).collect();
+    out.extend(crate::window::find_all_by_class(SECONDARY_CLASS).into_iter().filter(not_ours));
+    out
 }
 
 fn primary() -> Option<Hwnd> {
@@ -129,4 +112,16 @@ pub fn restore(state_file: &Path) {
         }
     }
     let _ = std::fs::remove_file(state_file);
+}
+
+#[cfg(test)]
+mod tests {
+    /// Needs Explorer running; prints what it finds.
+    #[test]
+    #[ignore = "reads live windows"]
+    fn lists_explorer_taskbar() {
+        let w = super::taskbar_windows();
+        eprintln!("taskbar windows: {w:?}, present: {}", super::explorer_taskbar_present());
+        assert!(!w.is_empty());
+    }
 }

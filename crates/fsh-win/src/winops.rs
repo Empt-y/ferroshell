@@ -69,9 +69,14 @@ pub fn close(hwnd: Hwnd) {
 /// Open a file, shortcut, executable or `shell:` path. May block briefly (the shell can
 /// do DDE); call from a worker thread. Requires COM on the calling thread.
 pub fn launch(target: &str, args: Option<&str>) -> anyhow::Result<()> {
+    launch_verb(target, args, "open")
+}
+
+/// [`launch`] with a shell verb, e.g. `runas` (run as administrator).
+pub fn launch_verb(target: &str, args: Option<&str>, verb: &str) -> anyhow::Result<()> {
     let target_w = wide(target);
     let args_w = args.map(wide);
-    let verb = wide("open");
+    let verb = wide(verb);
     let mut info = SHELLEXECUTEINFOW {
         cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
         fMask: SEE_MASK_NOASYNC,

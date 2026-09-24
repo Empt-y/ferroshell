@@ -80,7 +80,7 @@ impl App {
     }
 
     /// Add or remove a pinned app in this panel's task manager settings in config.toml.
-    fn set_pinned(&self, key: &PanelKey, spec: &str, pin: bool) {
+    pub(crate) fn set_pinned(&self, key: &PanelKey, spec: &str, pin: bool) {
         let (widget, mut list) = {
             let st = self.state.borrow();
             let Some(p) = st.panels.iter().find(|p| &p.key == key) else { return };

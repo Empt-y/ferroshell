@@ -18,7 +18,7 @@ target\release\fsh-session.exe
 hangs, and puts Explorer's taskbar back when it stops. To try it without hiding
 Explorer's taskbar, add `--keep-explorer-taskbar`.
 
-**If anything goes wrong:** press **Ctrl+Alt+Shift+E**. That stops Ferroshell and restores
+**If anything goes wrong:** press **Ctrl+Alt+Shift+E** (if another program already uses that, Ferroshell falls back to Ctrl+Alt+Shift+F12, then Ctrl+Alt+Shift+Q; `fsh-ctl status` shows which). That stops Ferroshell and restores
 Explorer's taskbar; press it again to start Ferroshell back up. From a terminal,
 `fsh-ctl restore-explorer` does the same even if nothing is running.
 
@@ -100,8 +100,8 @@ recover, and `scripts\screenshot.ps1` captures the panel for visual checks.
 - [x] Task manager: grouping, pinning, live previews, attention, context menus
 - [x] Hot reload, error isolation, Rhai scripts, out-of-process plugins
 - [x] Settings GUI
-- [ ] System tray (needed before replacing Explorer)
-- [ ] Kickoff-style application launcher
+- [x] System tray (active in replacement mode only)
+- [x] Kickoff-style application launcher (Windows key, search, calculator, run, Settings pages)
 - [ ] Full Explorer replacement at login (startup apps, `SetShellWindow`)
 - [ ] Virtual desktop pager, notifications
 

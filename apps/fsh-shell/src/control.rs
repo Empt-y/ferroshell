@@ -51,6 +51,10 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
                 json!({"ok": true})
             })
         }
+        "launcher" | "toggle_launcher" => on_ui(|| {
+            app::with(|a| a.toggle_launcher(crate::launcher::Anchor::Cursor));
+            json!({"ok": true})
+        }),
         "shutdown" | "quit" => exit(exit_codes::QUIT),
         "restart" => exit(exit_codes::RESTART),
         "debug.crash" => {

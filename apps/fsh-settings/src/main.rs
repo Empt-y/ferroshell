@@ -171,6 +171,20 @@ fn refresh(state: &Shared, ui: &SettingsWindow) {
         return;
     };
 
+    let l = &config.launcher;
+    b.set_l_windows_key(l.windows_key);
+    b.set_l_width(l.width as i32);
+    b.set_l_height(l.height as i32);
+    b.set_l_show_recent(l.show_recent);
+    b.set_l_favourites(l.favourites.join("\n").into());
+    b.set_l_web_search(l.web_search.as_str().into());
+    let has = |a: &str| l.power_actions.iter().any(|p| p == a);
+    b.set_l_lock(has("lock"));
+    b.set_l_sleep(has("sleep"));
+    b.set_l_restart(has("restart"));
+    b.set_l_shutdown(has("shutdown"));
+    b.set_l_logout(has("logout"));
+
     b.set_panels(model(config.panels.iter().enumerate().map(|(i, p)| {
         StandardListViewItem::from(SharedString::from(format!(
             "Panel {} ({}, {})",
@@ -416,6 +430,42 @@ fn connect(state: &Shared, ui: &SettingsWindow) {
         if let Err(e) = std::process::Command::new(program).arg(&path).spawn() {
             ui.global::<Backend>().set_status(format!("Could not open {}: {e}", path.display()).into());
         }
+    });
+    on!(on_set_launcher_bool, |st, ui, key: SharedString, v: bool| {
+        edit(st, &ui, |ed, _| {
+            ed.set_launcher(&key, v);
+            Ok(())
+        });
+    });
+    on!(on_set_launcher_int, |st, ui, key: SharedString, v: i32| {
+        edit(st, &ui, |ed, _| {
+            ed.set_launcher(&key, i64::from(v));
+            Ok(())
+        });
+    });
+    on!(on_set_launcher_text, |st, ui, key: SharedString, v: SharedString| {
+        edit(st, &ui, |ed, _| {
+            if key == "favourites" {
+                let items: Vec<String> = v.lines().map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned).collect();
+                ed.set_launcher_list("favourites", &items);
+            } else {
+                ed.set_launcher(&key, v.trim());
+            }
+            Ok(())
+        });
+    });
+    on!(on_set_power, |st, ui, id: SharedString, on: bool| {
+        edit(st, &ui, |ed, s| {
+            let current = s.config.as_ref().map(|c| c.launcher.power_actions.clone()).unwrap_or_default();
+            // Keep the standard order.
+            let list: Vec<String> = fsh_config::config::POWER_ACTIONS
+                .iter()
+                .filter(|a| if **a == id.as_str() { on } else { current.iter().any(|c| c == *a) })
+                .map(|a| (*a).to_owned())
+                .collect();
+            ed.set_launcher_list("power-actions", &list);
+            Ok(())
+        });
     });
     on!(on_refresh, |st, ui| {
         load(st, &ui);

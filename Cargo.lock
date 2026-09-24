@@ -1364,6 +1364,7 @@ version = "0.1.0"
 dependencies = [
  "fsh-config",
  "fsh-win",
+ "serde",
  "tracing",
 ]
 

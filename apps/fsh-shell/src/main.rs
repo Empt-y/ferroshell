@@ -3,9 +3,12 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod actions;
+mod apps;
 mod app;
 mod app_tasks;
+mod app_tray;
 mod control;
+mod launcher;
 mod panel;
 mod plugins;
 mod scripts;
@@ -13,6 +16,8 @@ mod taskbar;
 mod thumbs;
 mod timefmt;
 mod tracker;
+mod tray;
+mod traybar;
 mod watch;
 
 use std::process::ExitCode;

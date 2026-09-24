@@ -41,6 +41,9 @@ pub fn request_exit(code: i32) {
 pub fn shutdown() {
     let app = APP.with(|a| a.borrow_mut().take());
     if let Some(app) = app {
+        // Give the Windows key back and stop hosting tray icons first.
+        drop(app.keyhook.borrow_mut().take());
+        drop(app.tray_thread.borrow_mut().take());
         let panels = std::mem::take(&mut app.state.borrow_mut().panels);
         for p in &panels {
             p.hide();
@@ -91,6 +94,12 @@ pub struct App {
     sources_revision: Cell<i32>,
     pub(crate) scripts: crate::scripts::ScriptHost,
     pub(crate) plugins: crate::plugins::PluginHost,
+    pub(crate) tray: RefCell<crate::traybar::TrayState>,
+    pub(crate) tray_thread: RefCell<Option<crate::tray::TrayThread>>,
+    pub(crate) tray_timer: slint::Timer,
+    pub(crate) launcher: crate::launcher::Launcher,
+    app_indexer: crate::apps::AppIndexer,
+    keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     relayout_pending: Cell<bool>,
     last_relayout: Cell<Option<Instant>>,
     reload_pending: Cell<Pending>,
@@ -138,6 +147,16 @@ impl App {
             sources_revision: Cell::new(0),
             scripts: crate::scripts::ScriptHost::spawn()?,
             plugins: crate::plugins::PluginHost::spawn()?,
+            tray: RefCell::default(),
+            tray_thread: RefCell::new(None),
+            tray_timer: slint::Timer::default(),
+            launcher: crate::launcher::Launcher::default(),
+            app_indexer: crate::apps::AppIndexer::spawn(|u| {
+                let _ = slint::invoke_from_event_loop(move || {
+                    with(|a| a.on_apps_update(u));
+                });
+            })?,
+            keyhook: RefCell::new(None),
             relayout_pending: Cell::new(false),
             last_relayout: Cell::new(None),
             reload_pending: Cell::new(Pending::None),
@@ -148,6 +167,7 @@ impl App {
             _events: events,
         });
         APP.with(|a| *a.borrow_mut() = Some(app.clone()));
+        app.launcher.state.borrow_mut().history = crate::launcher::load_history();
 
         app.load();
         app.rebuild_panels();
@@ -257,6 +277,7 @@ impl App {
                         safe_mode: self.safe_mode,
                         config_error: &config_error,
                         tasks: PanelTasks::from_config(pc, &m.device),
+                        tray: crate::traybar::PanelTray::from_config(pc),
                     });
                     match built {
                         Ok((p, statuses)) => {
@@ -278,6 +299,8 @@ impl App {
         }
         self.refresh_tasks();
         self.sync_scripts();
+        self.sync_tray();
+        self.sync_keyhook();
         self.attach_started.set(Some(Instant::now()));
         self.attach_timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), || {
             with(|a| a.attach_native_windows());
@@ -385,6 +408,7 @@ impl App {
 
     /// Re-read config, theme and widgets, and rebuild the panels.
     pub fn reload(&self) {
+        self.app_indexer.refresh();
         self.load();
         self.rebuild_panels();
         self.sync_pinned();
@@ -424,11 +448,14 @@ impl App {
                     p.config = pc.clone();
                     let fresh = PanelTasks::from_config(pc, &p.key.device);
                     p.tasks.update_config(fresh);
+                    p.tray.update_config(crate::traybar::PanelTray::from_config(pc));
                 }
             }
         }
         self.sync_pinned();
         self.sync_scripts();
+        self.sync_tray();
+        self.sync_keyhook();
         self.refresh_tasks();
     }
 
@@ -494,6 +521,45 @@ impl App {
             for p in &self.state.borrow().panels {
                 p.set_sources_revision(rev);
             }
+        }
+    }
+
+    pub(crate) fn layout(&self) -> &Layout {
+        &self.layout
+    }
+
+    /// The Windows key opens our launcher while `[launcher] windows-key` is on (never in
+    /// safe mode).
+    fn sync_keyhook(&self) {
+        let wanted = !self.safe_mode && self.state.borrow().config.config().launcher.windows_key;
+        let running = self.keyhook.borrow().is_some();
+        if wanted && !running {
+            match fsh_win::keyhook::KeyHook::start(|| {
+                let _ = slint::invoke_from_event_loop(|| {
+                    with(|a| a.toggle_launcher(crate::launcher::Anchor::Cursor));
+                });
+            }) {
+                Ok(h) => {
+                    tracing::info!("Windows key opens the launcher");
+                    *self.keyhook.borrow_mut() = Some(h);
+                }
+                Err(e) => tracing::error!("could not take over the Windows key: {e:#}"),
+            }
+        } else if !wanted && running {
+            drop(self.keyhook.borrow_mut().take());
+            tracing::info!("Windows key returned to Windows");
+        }
+    }
+
+    /// `Shell.invoke` from a widget on a panel: like `actions::invoke`, but actions that
+    /// open something next to the widget know where it is.
+    pub fn invoke_from_panel(&self, key: &PanelKey, action: &str, arg: &str) {
+        if action == "launcher" {
+            let v: Vec<f64> = arg.split(',').filter_map(|s| s.trim().parse().ok()).collect();
+            let rect = (v.len() == 4).then(|| [v[0], v[1], v[2], v[3]]);
+            self.toggle_launcher(crate::launcher::Anchor::Panel { key: key.clone(), rect });
+        } else {
+            crate::actions::invoke(action, arg);
         }
     }
 
@@ -590,6 +656,13 @@ impl App {
             "foreground": tasks.foreground,
             "sources": *self.sources.borrow(),
             "plugins": self.plugins.status(),
+            "launcher": self.launcher_state(),
+            "tray": {
+                "hosting": self.tray_thread.borrow().is_some(),
+                "icons": self.tray.borrow().model.icons().iter().map(|i| json!({
+                    "id": i.key.id(), "tip": i.tip, "hidden": i.hidden, "version": i.version, "owner": i.owner,
+                })).collect::<Vec<_>>(),
+            },
             "pinned_resolved": tasks.pinned.values().map(|p| json!({
                 "spec": p.spec, "group": p.group, "title": p.title, "launch": p.launch,
                 "has_icon": tasks.icons.contains_key(&p.icon),

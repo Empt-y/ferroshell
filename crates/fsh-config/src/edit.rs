@@ -135,6 +135,27 @@ impl ConfigEditor {
         Ok(())
     }
 
+    fn launcher_table(&mut self) -> &mut toml_edit::Table {
+        if self.doc.get("launcher").and_then(Item::as_table).is_none() {
+            self.doc["launcher"] = Item::Table(toml_edit::Table::new());
+        }
+        // Just ensured it's a table.
+        self.doc["launcher"].as_table_mut().expect("launcher is a table")
+    }
+
+    /// Set a `[launcher]` key, creating the section if needed.
+    pub fn set_launcher(&mut self, key: &str, value: impl Into<Value>) {
+        self.launcher_table()[key] = toml_edit::value(value.into());
+    }
+
+    pub fn set_launcher_list(&mut self, key: &str, items: &[String]) {
+        let mut arr = Array::new();
+        for s in items {
+            arr.push(s.as_str());
+        }
+        self.set_launcher(key, arr);
+    }
+
     /// Set a top-level key such as `theme`.
     pub fn set_top(&mut self, key: &str, value: impl Into<Value>) {
         self.doc[key] = toml_edit::value(value.into());
@@ -195,8 +216,9 @@ mod tests {
         assert_eq!(ids(&ed, 0)[2], "org.ferroshell.spacer");
         ed.move_widget(0, 2, 0).unwrap();
         assert_eq!(ids(&ed, 0)[0], "org.ferroshell.spacer");
+        let before = ids(&ed, 0).len();
         ed.remove_widget(0, 0).unwrap();
-        assert_eq!(ids(&ed, 0).len(), 4);
+        assert_eq!(ids(&ed, 0).len(), before - 1);
         assert!(ed.remove_widget(0, 10).is_err());
 
         ed.set_widget_setting(0, 2, "format", "%H").unwrap();
@@ -212,6 +234,17 @@ mod tests {
         assert_eq!(Config::parse(&ed.to_text()).unwrap().panels.len(), 1);
         // One widget per line.
         assert!(ed.to_text().contains("widgets = [\n    { id = \"org.ferroshell.clock\" },\n]"), "{}", ed.to_text());
+    }
+
+    #[test]
+    fn launcher_section_is_created_and_edited() {
+        let mut ed = ConfigEditor::parse(crate::config::DEFAULT_CONFIG).unwrap();
+        ed.set_launcher_list("favourites", &["x".into()]);
+        ed.set_launcher("windows-key", false);
+        let c = Config::parse(&ed.to_text()).unwrap();
+        assert_eq!(c.launcher.favourites, ["x"]);
+        assert!(!c.launcher.windows_key);
+        assert!(ed.to_text().contains("# RustShell configuration.") || ed.to_text().contains("# Ferroshell configuration."));
     }
 
     #[test]

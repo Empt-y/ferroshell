@@ -1,25 +1,43 @@
 import { Shell, Theme } from "@ferroshell/api.slint";
 import { PanelButton } from "@ferroshell/controls.slint";
 
+// The Ferroshell mark: an iron hexagon holding a spiral shell.
+component Logo inherits Rectangle {
+    in property <color> body: Theme.accent;
+    in property <color> shell: #ffffff;
+    Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: "M 12 1 L 21.5 6.5 L 21.5 17.5 L 12 23 L 2.5 17.5 L 2.5 6.5 Z";
+        fill: root.body;
+    }
+    Path {
+        width: parent.width;
+        height: parent.height;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        commands: "M 12 6.5 A 5.5 5.5 0 1 1 6.5 12 A 3.5 3.5 0 0 1 10 8.5 A 2.25 2.25 0 1 1 10 13";
+        stroke: root.shell;
+        stroke-width: 1.8px;
+        fill: transparent;
+    }
+}
+
 export component Widget inherits PanelButton {
-    in property <string> action: "start-menu";
+    in property <string> action: "launcher";
 
     horizontal-stretch: 0;
-    clicked => { Shell.invoke(root.action, ""); }
+    // The button's rectangle tells the shell where to open the launcher.
+    clicked => {
+        Shell.invoke(root.action,
+            (self.absolute-position.x / 1px) + "," + (self.absolute-position.y / 1px) + ","
+                + (self.width / 1px) + "," + (self.height / 1px));
+    }
 
-    // A 2x2 grid of rounded tiles in the accent colour.
-    Rectangle {
-        width: Theme.icon-size * 0.8;
+    Logo {
+        width: Theme.icon-size * 0.9;
         height: self.width;
-        property <length> gap: self.width * 0.1;
-        property <length> tile: (self.width - self.gap) / 2;
-        for i in 4: Rectangle {
-            x: mod(i, 2) * (parent.tile + parent.gap);
-            y: floor(i / 2) * (parent.tile + parent.gap);
-            width: parent.tile;
-            height: parent.tile;
-            border-radius: parent.tile * 0.25;
-            background: i == 0 ? Theme.accent : Theme.accent.with-alpha(0.75);
-        }
     }
 }

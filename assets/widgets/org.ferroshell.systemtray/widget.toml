@@ -1,0 +1,19 @@
+id = "org.ferroshell.systemtray"
+name = "System Tray"
+description = "Notification-area icons from running apps."
+version = "1.0.0"
+api = 1
+
+[config.icon-scale]
+type = "int"
+default = 70
+min = 30
+max = 100
+label = "Icon size (% of the theme's icon size)"
+
+[config.hidden]
+type = "string-list"
+default = []
+ui = false
+label = "Hidden icons"
+description = "One per line; hides icons whose tooltip or program name contains the text (e.g. OneDrive)."

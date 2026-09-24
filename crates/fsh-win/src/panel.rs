@@ -37,6 +37,18 @@ pub fn make_panel_window(hwnd: Hwnd) {
     }
 }
 
+/// Style a popup that takes keyboard focus (e.g. the launcher): no taskbar/Alt+Tab entry,
+/// always on top, but activatable, unlike panels.
+pub fn make_popup_window(hwnd: Hwnd) {
+    unsafe {
+        let h = hwnd.raw();
+        let ex = GetWindowLongPtrW(h, GWL_EXSTYLE) as u32;
+        let ex = (ex & !(WS_EX_APPWINDOW.0 | WS_EX_NOACTIVATE.0)) | WS_EX_TOOLWINDOW.0 | WS_EX_TOPMOST.0;
+        SetWindowLongPtrW(h, GWL_EXSTYLE, ex as isize);
+        let _ = SetWindowPos(h, Some(HWND_TOPMOST), 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+    }
+}
+
 /// Keep the panel above normal windows, or drop it behind (e.g. while a game is fullscreen).
 pub fn set_topmost(hwnd: Hwnd, topmost: bool) {
     unsafe {
