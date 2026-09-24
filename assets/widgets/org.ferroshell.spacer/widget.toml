@@ -1,0 +1,13 @@
+id = "org.ferroshell.spacer"
+name = "Spacer"
+description = "Empty space: expands to push widgets apart, or a fixed gap."
+version = "1.0.0"
+api = 1
+
+[config.size]
+type = "int"
+default = 0
+min = 0
+max = 2000
+label = "Size"
+description = "Fixed size in logical pixels; 0 expands to fill available space."

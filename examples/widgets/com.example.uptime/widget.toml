@@ -1,0 +1,13 @@
+id = "com.example.uptime"
+name = "Uptime (Rhai script)"
+description = "Example: a Rhai script counting time since the widget started. Click to reset."
+version = "1.0.0"
+api = 1
+
+[script]
+interval = 1
+
+[config.label]
+type = "string"
+default = "Up"
+label = "Label"

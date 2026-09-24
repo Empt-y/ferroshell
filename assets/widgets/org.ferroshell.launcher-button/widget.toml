@@ -1,0 +1,11 @@
+id = "org.ferroshell.launcher-button"
+name = "Application Launcher Button"
+description = "Opens the application launcher (currently the Windows Start menu)."
+version = "1.0.0"
+api = 1
+
+[config.action]
+type = "string"
+default = "start-menu"
+label = "Action"
+description = "Shell action to run when clicked."

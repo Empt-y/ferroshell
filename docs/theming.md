@@ -1,0 +1,58 @@
+# Themes
+
+A theme is a folder with a `theme.toml`, in `%APPDATA%\ferroshell\themes\<name>\`
+(yours) or `%LOCALAPPDATA%\ferroshell\builtin\themes\<name>\` (built-in: `breeze-dark`,
+`breeze-light`). Select it with `theme = "<name>"` in `config.toml`, or in
+`fsh-settings` (which can preview before applying). Edits apply as soon as you save.
+
+A theme only needs the values it changes; everything else keeps the default.
+
+```toml
+name = "Midnight"
+backdrop = "acrylic"   # "acrylic", "mica" or "none" (Windows 11 materials behind the panel)
+font = ""              # font family; empty = system UI font
+
+[colors]               # "#rrggbb" or "#rrggbbaa"
+panel-background = "#10131acc"   # alpha lets the backdrop show through
+accent = "system"                # follow the Windows accent colour
+
+[metrics]              # logical pixels
+radius = 6
+icon-size = 26
+```
+
+Unknown tokens and bad values are logged as warnings and ignored. A theme that doesn't
+parse at all falls back to the defaults.
+
+## Tokens
+
+| Colour | Default | Used for |
+|---|---|---|
+| `panel-background` | `#202326e6` | panel fill |
+| `panel-border` | `#ffffff14` | hairline on the panel's inner edge |
+| `foreground` | `#fcfcfc` | text and icons |
+| `foreground-dim` | `#a1a9b1` | secondary text, inactive indicators |
+| `accent` | `#3daee9` | active indicators, highlights (`"system"` = Windows accent) |
+| `hover` / `pressed` | `#ffffff14` / `#ffffff24` | item backgrounds |
+| `highlight` | `#3daee940` | active task background (tinted with the accent) |
+| `attention` | `#f67400` | apps asking for attention, warnings |
+| `popup-background` | `#202326f5` | previews and popups |
+| `error` | `#da4453` | broken widgets |
+
+| Metric | Default |
+|---|---|
+| `radius` | 4 |
+| `panel-radius` | 8 |
+| `floating-margin` | 6 |
+| `spacing` | 2 |
+| `padding` | 3 |
+| `font-size` | 13 |
+| `icon-size` | 24 |
+
+Widgets read these through the `Theme` global: `Theme.accent`, `Theme.radius`, and so on.
+
+## Overriding widgets per theme
+
+A theme can restyle any widget completely by including `widgets\<widget-id>\` (a full
+widget package; see [widget-api.md](widget-api.md)). Lookup order is: your
+`%APPDATA%\ferroshell\widgets`, then the active theme's `widgets`, then the built-ins.

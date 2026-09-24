@@ -1,0 +1,40 @@
+id = "org.ferroshell.taskmanager"
+name = "Task Manager"
+description = "Pinned apps and open windows."
+version = "1.0.0"
+api = 1
+
+[config.show-titles]
+type = "bool"
+default = false
+label = "Show window titles"
+description = "Off: icons only (like Plasma's Icons-only Task Manager)."
+
+[config.max-item-width]
+type = "int"
+default = 220
+min = 60
+max = 800
+label = "Maximum item width"
+description = "When titles are shown, in logical pixels."
+
+# Settings below are read by the shell, not the widget's UI.
+
+[config.group]
+type = "bool"
+default = true
+ui = false
+label = "Group windows by app"
+
+[config.only-this-monitor]
+type = "bool"
+default = false
+ui = false
+label = "Only show windows on this panel's monitor"
+
+[config.pinned]
+type = "string-list"
+default = []
+ui = false
+label = "Pinned apps"
+description = "App ids (AUMIDs), .lnk shortcuts or .exe paths, in order."

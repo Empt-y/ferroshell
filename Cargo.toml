@@ -1,0 +1,82 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.dependencies]
+fsh-common = { path = "crates/fsh-common" }
+fsh-win = { path = "crates/fsh-win" }
+fsh-ipc = { path = "crates/fsh-ipc" }
+fsh-config = { path = "crates/fsh-config" }
+fsh-core = { path = "crates/fsh-core" }
+fsh-widgets = { path = "crates/fsh-widgets" }
+fsh-plugin-sdk = { path = "crates/fsh-plugin-sdk" }
+
+slint = { version = "1.18", features = ["raw-window-handle-06"] }
+slint-interpreter = "1.18"
+spin_on = "0.1"
+toml = { version = "1", features = ["preserve_order"] }
+toml_edit = "0.25"
+include_dir = "0.7"
+chrono = "0.4"
+
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
+interprocess = "2.4"
+
+[workspace.dependencies.windows]
+version = "0.62"
+features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Dwm",
+    "Win32_Graphics_Gdi",
+    "Win32_Security",
+    "Win32_Storage_EnhancedStorage",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_Packaging_Appx",
+    "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
+    "Win32_System_Console",
+    "Win32_System_Diagnostics_Debug",
+    "Win32_System_ErrorReporting",
+    "Win32_System_JobObjects",
+    "Win32_System_Kernel",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Memory",
+    "Win32_System_Registry",
+    "Win32_System_Threading",
+    "Win32_System_Variant",
+    "Win32_UI_Accessibility",
+    "Win32_UI_Controls",
+    "Win32_UI_HiDpi",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+]
+
+[workspace.lints.rust]
+# `deny` rather than `forbid`: Slint's generated code needs a local `allow`. Only fsh-win
+# (and the sysmon plugin) actually opt in to unsafe code.
+unsafe_code = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+[profile.release]
+debug = "line-tables-only"
+panic = "unwind"
+lto = "thin"

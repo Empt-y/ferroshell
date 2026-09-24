@@ -1,0 +1,5 @@
+id = "org.ferroshell.separator"
+name = "Separator"
+description = "A thin line between widgets."
+version = "1.0.0"
+api = 1

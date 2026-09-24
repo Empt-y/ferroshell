@@ -1,0 +1,5 @@
+id = "org.ferroshell.show-desktop"
+name = "Peek at Desktop"
+description = "Minimizes all windows, or restores them on the next click."
+version = "1.0.0"
+api = 1

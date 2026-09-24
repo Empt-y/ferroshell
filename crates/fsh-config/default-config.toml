@@ -1,0 +1,30 @@
+# Ferroshell configuration.
+# The shell reloads this file automatically when you save it. If it contains an error,
+# the shell keeps running with the last configuration that worked and shows a warning
+# badge on the panel; see %LOCALAPPDATA%\ferroshell\logs\shell.*.log for details.
+
+version = 1
+
+# A folder name under %APPDATA%\ferroshell\themes, or a built-in theme:
+# "breeze-dark", "breeze-light".
+theme = "breeze-dark"
+
+[[panel]]
+# "primary", "all", or a monitor number starting at 0.
+monitor = "all"
+# "bottom", "top", "left" or "right".
+edge = "bottom"
+# Height (or width, for left/right panels) in logical pixels.
+thickness = 44
+# Detach the panel from the screen edge, with rounded corners.
+floating = false
+
+# Widgets, in order. Each entry is a widget id plus that widget's own settings.
+# Put your own widgets in %APPDATA%\ferroshell\widgets\<id>\ to add new ones or
+# override built-in ones.
+widgets = [
+    { id = "org.ferroshell.launcher-button" },
+    { id = "org.ferroshell.taskmanager" },
+    { id = "org.ferroshell.clock", format = "%H:%M", date-format = "%d/%m/%Y" },
+    { id = "org.ferroshell.show-desktop" },
+]

@@ -1,0 +1,42 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { PanelButton, DimLabel } from "@ferroshell/controls.slint";
+
+// A vertical meter that fills from the bottom.
+component Meter inherits Rectangle {
+    in property <float> percent;
+    in property <int> warn-at: 90;
+    width: 6px;
+    border-radius: 2px;
+    background: Theme.foreground-dim.with-alpha(0.25);
+    Rectangle {
+        y: parent.height - self.height;
+        height: parent.height * clamp(root.percent, 0, 100) / 100;
+        border-radius: 2px;
+        background: root.percent >= root.warn-at ? Theme.attention : Theme.accent;
+        animate height { duration: 300ms; easing: ease-out; }
+    }
+}
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+    in property <bool> show-text: true;
+    in property <int> warn-at: 90;
+
+    property <float> cpu: Shell.source("org.ferroshell.system-monitor/cpu", Shell.sources-revision).to-float();
+    property <float> mem: Shell.source("org.ferroshell.system-monitor/mem", Shell.sources-revision).to-float();
+
+    horizontal-stretch: 0;
+    content-padding: 6px;
+    clicked => { Shell.invoke("launch", "taskmgr.exe"); }
+
+    HorizontalLayout {
+        spacing: 3px;
+        Meter { percent: root.cpu; warn-at: root.warn-at; height: Shell.thickness * 0.55; }
+        Meter { percent: root.mem; warn-at: root.warn-at; height: Shell.thickness * 0.55; }
+    }
+    if root.show-text && !Shell.vertical: VerticalLayout {
+        alignment: center;
+        DimLabel { text: "CPU " + round(root.cpu) + "%"; }
+        DimLabel { text: "RAM " + round(root.mem) + "%"; }
+    }
+}

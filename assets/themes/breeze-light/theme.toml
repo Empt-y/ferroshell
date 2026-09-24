@@ -1,0 +1,15 @@
+name = "Breeze Light"
+backdrop = "acrylic"
+
+[colors]
+panel-background = "#eff0f1d9"
+panel-border = "#00000014"
+foreground = "#232629"
+foreground-dim = "#6e7175"
+accent = "#3daee9"
+hover = "#0000000f"
+pressed = "#0000001f"
+highlight = "#3daee938"
+attention = "#f67400"
+popup-background = "#eff0f1f5"
+error = "#da4453"

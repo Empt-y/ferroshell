@@ -1,0 +1,94 @@
+// Popups the shell shows on behalf of widgets. Like everything in @ferroshell, a theme can
+// restyle these by overriding the Theme tokens.
+
+import { Theme } from "api.slint";
+export { Theme }
+
+// One window preview. Positions are computed by the shell (it has to place the live DWM
+// thumbnail at exactly the same spot); `h` is 0 for entries without a preview.
+export struct PreviewEntry {
+    title: string,
+    icon: image,
+    x: length,
+    y: length,
+    w: length,
+    h: length,
+    active: bool,
+}
+
+// Live previews of a task's windows, shown when hovering a task.
+export component PreviewPopup inherits Window {
+    in property <[PreviewEntry]> entries;
+    in property <length> title-height: 26px;
+    callback activate(/* index */ int);
+    callback close-window(/* index */ int);
+    callback hover-changed(/* hovering */ bool);
+
+    title: "Ferroshell Preview";
+    no-frame: true;
+    always-on-top: true;
+    background: transparent;
+    default-font-size: Theme.font-size;
+    default-font-family: Theme.font-family;
+
+    outer := TouchArea {
+        changed has-hover => { root.hover-changed(self.has-hover); }
+    }
+
+    Rectangle {
+        background: Theme.popup-background;
+        border-radius: 8px;
+        border-width: 1px;
+        border-color: Theme.panel-border;
+    }
+
+    for e[i] in root.entries: Rectangle {
+        x: e.x;
+        y: e.y;
+        width: e.w;
+        height: e.h + root.title-height;
+        border-radius: 6px;
+        background: item-touch.pressed ? Theme.pressed : item-touch.has-hover ? Theme.hover : e.active ? Theme.highlight : transparent;
+
+        item-touch := TouchArea {
+            clicked => { root.activate(i); }
+        }
+
+        HorizontalLayout {
+            y: 0;
+            height: root.title-height;
+            padding-left: 6px;
+            padding-right: 4px;
+            spacing: 6px;
+            Image {
+                source: e.icon;
+                width: 16px;
+                height: 16px;
+                y: (root.title-height - 16px) / 2;
+            }
+            Text {
+                text: e.title;
+                color: Theme.foreground;
+                overflow: elide;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+            Rectangle {
+                width: 22px;
+                opacity: item-touch.has-hover || close-touch.has-hover ? 1 : 0;
+                border-radius: 4px;
+                background: close-touch.has-hover ? Theme.error.with-alpha(0.8) : transparent;
+                Text {
+                    text: "✕";
+                    color: Theme.foreground;
+                    font-size: Theme.font-size * 0.9;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                close-touch := TouchArea {
+                    clicked => { root.close-window(i); }
+                }
+            }
+        }
+    }
+}

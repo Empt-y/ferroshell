@@ -1,0 +1,25 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { PanelButton } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> action: "start-menu";
+
+    horizontal-stretch: 0;
+    clicked => { Shell.invoke(root.action, ""); }
+
+    // A 2x2 grid of rounded tiles in the accent colour.
+    Rectangle {
+        width: Theme.icon-size * 0.8;
+        height: self.width;
+        property <length> gap: self.width * 0.1;
+        property <length> tile: (self.width - self.gap) / 2;
+        for i in 4: Rectangle {
+            x: mod(i, 2) * (parent.tile + parent.gap);
+            y: floor(i / 2) * (parent.tile + parent.gap);
+            width: parent.tile;
+            height: parent.tile;
+            border-radius: parent.tile * 0.25;
+            background: i == 0 ? Theme.accent : Theme.accent.with-alpha(0.75);
+        }
+    }
+}

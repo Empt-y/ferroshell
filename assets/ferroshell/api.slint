@@ -1,0 +1,89 @@
+// Ferroshell widget API, version 1.
+//
+// Import from widgets with:
+//     import { Shell, Theme, Task } from "@ferroshell/api.slint";
+//
+// `Shell` carries data and actions from the shell; `Theme` carries the active theme's
+// design tokens. Both are set per panel, so `Shell.vertical` etc. describe the panel the
+// widget is on. See docs/widget-api.md for the full reference.
+
+// One entry in the task manager: a running window group or a pinned launcher.
+export struct Task {
+    // Stable key used in callbacks.
+    id: string,
+    title: string,
+    icon: image,
+    // The group contains the foreground window.
+    active: bool,
+    // Every window in the group is minimized.
+    minimized: bool,
+    // A window in the group is flashing for attention.
+    attention: bool,
+    pinned: bool,
+    // False for a pinned launcher with no open windows.
+    running: bool,
+    // Number of windows in the group.
+    count: int,
+}
+
+export global Shell {
+    // ---- Panel context ----
+    in property <bool> vertical;
+    // "top", "bottom", "left" or "right".
+    in property <string> edge: "bottom";
+    in property <length> thickness: 44px;
+
+    // ---- Data ----
+    in property <[Task]> tasks;
+    // Seconds since the Unix epoch; updated every second. Bind to it to refresh with time.
+    in property <int> now;
+    in property <bool> safe-mode;
+    // Non-empty when the config file has an error and a fallback is in use.
+    in property <string> config-error;
+    // Increments whenever any data source changes (see `source`).
+    in property <int> sources-revision;
+
+    // ---- Functions ----
+    // strftime-style formatting of `now` in local time, e.g. format-time(Shell.now, "%H:%M").
+    pure callback format-time(/* now */ int, /* format */ string) -> string;
+    // Current value of a data source published by a plugin or script, as text ("" if unset).
+    // Pass `Shell.sources-revision` so the binding re-evaluates when sources change.
+    pure callback source(/* name */ string, /* revision */ int) -> string;
+
+    // ---- Actions ----
+    // Left click on a task: activate it, or minimize it if it is already active.
+    callback activate-task(/* id */ string);
+    // "new-instance", "close", "minimize", "pin" or "unpin".
+    callback task-action(/* id */ string, /* action */ string);
+    // Show the task's context menu at a position relative to the panel window.
+    callback task-menu(/* id */ string, /* x */ length, /* y */ length);
+    // Hovering a task: `true` with the item's rectangle (panel-relative) to show a preview,
+    // `false` to hide it.
+    callback task-hover(/* id */ string, /* hovering */ bool, /* x */ length, /* y */ length, /* w */ length, /* h */ length);
+    // Generic actions: "start-menu", "show-desktop", "settings", "launch" (arg: path or app id),
+    // "plugin:<plugin-id>/<action>" (arg passed to the plugin), "script:<widget-instance>/<fn>".
+    callback invoke(/* action */ string, /* arg */ string);
+}
+
+export global Theme {
+    in property <color> panel-background: #202326e6;
+    in property <color> panel-border: #ffffff14;
+    in property <color> foreground: #fcfcfc;
+    in property <color> foreground-dim: #a1a9b1;
+    in property <color> accent: #3daee9;
+    in property <color> hover: #ffffff14;
+    in property <color> pressed: #ffffff24;
+    in property <color> highlight: #3daee940;
+    in property <color> attention: #f67400;
+    in property <color> popup-background: #202326f5;
+    in property <color> error: #da4453;
+
+    in property <length> radius: 4px;
+    in property <length> panel-radius: 8px;
+    in property <length> floating-margin: 6px;
+    in property <length> spacing: 2px;
+    in property <length> padding: 3px;
+    in property <length> font-size: 13px;
+    in property <length> icon-size: 24px;
+    in property <string> font-family;
+}

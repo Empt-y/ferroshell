@@ -1,0 +1,33 @@
+# Breeze Dark (the built-in defaults, spelled out as a starting point for your own theme).
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ and set `theme = "<name>"`.
+# Any token you leave out keeps its default. Themes can also override widgets by
+# including widgets\<widget-id>\ui.slint.
+
+name = "Breeze Dark"
+# "acrylic", "mica" or "none".
+backdrop = "acrylic"
+# Leave empty for the system UI font.
+font = ""
+
+[colors]
+panel-background = "#202326cc"
+panel-border = "#ffffff14"
+foreground = "#fcfcfc"
+foreground-dim = "#a1a9b1"
+# "system" follows the Windows accent colour.
+accent = "#3daee9"
+hover = "#ffffff14"
+pressed = "#ffffff24"
+highlight = "#3daee940"
+attention = "#f67400"
+popup-background = "#202326f5"
+error = "#da4453"
+
+[metrics]
+radius = 4
+panel-radius = 8
+floating-margin = 6
+spacing = 2
+padding = 3
+font-size = 13
+icon-size = 24

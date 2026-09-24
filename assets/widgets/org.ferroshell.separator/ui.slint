@@ -1,0 +1,16 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+
+export component Widget inherits Rectangle {
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    min-width: Shell.vertical ? 0 : 9px;
+    min-height: Shell.vertical ? 9px : 0;
+    preferred-width: self.min-width;
+    preferred-height: self.min-height;
+
+    Rectangle {
+        background: Theme.foreground-dim.with-alpha(0.35);
+        width: Shell.vertical ? parent.width * 0.6 : 1px;
+        height: Shell.vertical ? 1px : parent.height * 0.6;
+    }
+}

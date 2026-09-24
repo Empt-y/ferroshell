@@ -1,0 +1,13 @@
+import { Shell } from "@ferroshell/api.slint";
+import { PanelButton, Label } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+    in property <string> label: "Up";
+
+    horizontal-stretch: 0;
+    content-padding: 8px;
+    clicked => { Shell.invoke("script:" + root.instance-id + "/on_click", ""); }
+
+    Label { text: root.label + " " + Shell.source(root.instance-id + "/text", Shell.sources-revision); }
+}

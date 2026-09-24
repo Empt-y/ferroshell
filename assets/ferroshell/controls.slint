@@ -1,0 +1,125 @@
+// Building blocks for panel widgets that follow the active theme.
+//
+//     import { PanelButton, Label, DimLabel } from "@ferroshell/controls.slint";
+
+import { Theme, Shell } from "api.slint";
+
+// Themed text.
+export component Label inherits Text {
+    color: Theme.foreground;
+    font-size: Theme.font-size;
+    vertical-alignment: center;
+    overflow: elide;
+}
+
+export component DimLabel inherits Label {
+    color: Theme.foreground-dim;
+    font-size: Theme.font-size * 0.85;
+}
+
+// A flat, themed button that fills the panel's thickness. Put content inside it; it is
+// laid out horizontally with padding. Use `clicked`, `middle-clicked` and
+// `right-clicked(x, y)` (position relative to the button).
+//
+// `indicator` draws a short line along the panel's inner edge (e.g. "app is running");
+// with `active` it becomes longer and uses the accent colour.
+export component PanelButton inherits Rectangle {
+    in property <bool> active;
+    in property <bool> attention;
+    in property <bool> indicator;
+    in property <bool> enabled: true;
+    in property <length> content-padding: 6px;
+    out property <bool> hovered: touch.has-hover;
+    out property <bool> pressed: touch.pressed;
+    callback clicked();
+    callback middle-clicked();
+    callback right-clicked(/* x */ length, /* y */ length);
+
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.pressed
+        : touch.has-hover ? Theme.hover
+        : root.active ? Theme.highlight
+        : transparent;
+    animate background { duration: 90ms; }
+
+    // Content is centred on both axes; stretchy children (e.g. a title label) still fill.
+    VerticalLayout {
+        alignment: center;
+        padding-left: root.content-padding;
+        padding-right: root.content-padding;
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: center;
+            @children
+        }
+    }
+
+    if root.indicator && !root.attention: Rectangle {
+        property <length> len: root.active ? min(20px, (Shell.vertical ? parent.height : parent.width) - 8px) : 8px;
+        width: Shell.vertical ? 2px : self.len;
+        height: Shell.vertical ? self.len : 2px;
+        border-radius: 1px;
+        background: root.active ? Theme.accent : Theme.foreground-dim;
+        // Along the screen edge, like Plasma and Windows.
+        x: Shell.vertical ? (Shell.edge == "left" ? 1px : parent.width - self.width - 1px) : (parent.width - self.width) / 2;
+        y: Shell.vertical ? (parent.height - self.height) / 2 : (Shell.edge == "top" ? 1px : parent.height - self.height - 1px);
+        animate width, height { duration: 120ms; }
+    }
+
+    // Attention: a bar along the screen edge.
+    if root.attention: Rectangle {
+        background: Theme.attention;
+        border-radius: 1px;
+        height: Shell.vertical ? parent.height - 8px : 3px;
+        width: Shell.vertical ? 3px : parent.width - 8px;
+        x: Shell.edge == "left" ? 0 : Shell.edge == "right" ? parent.width - self.width : 4px;
+        y: Shell.edge == "top" ? 0 : Shell.edge == "bottom" ? parent.height - self.height : 4px;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.up {
+                if e.button == PointerEventButton.middle {
+                    root.middle-clicked();
+                } else if e.button == PointerEventButton.right {
+                    root.right-clicked(self.mouse-x, self.mouse-y);
+                }
+            }
+        }
+    }
+}
+
+// Shown by the shell in place of a widget that failed to load. Hover shows the reason.
+export component ErrorWidget inherits Rectangle {
+    in property <string> widget-id;
+    in property <string> message;
+    border-radius: Theme.radius;
+    background: touch.has-hover ? Theme.error.with-alpha(0.35) : Theme.error.with-alpha(0.2);
+    min-width: 28px;
+    horizontal-stretch: 0;
+
+    HorizontalLayout {
+        padding-left: 6px;
+        padding-right: 6px;
+        spacing: 4px;
+        alignment: center;
+        Text {
+            text: "!";
+            color: Theme.error;
+            font-weight: 800;
+            font-size: Theme.font-size * 1.2;
+            vertical-alignment: center;
+        }
+        if touch.has-hover: Text {
+            text: root.widget-id + ": " + root.message;
+            color: Theme.foreground;
+            font-size: Theme.font-size * 0.85;
+            vertical-alignment: center;
+            max-width: 480px;
+            overflow: elide;
+        }
+    }
+    touch := TouchArea {}
+}

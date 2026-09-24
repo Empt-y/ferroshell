@@ -1,0 +1,64 @@
+import { Shell, Theme, Task } from "@ferroshell/api.slint";
+import { PanelButton, Label } from "@ferroshell/controls.slint";
+
+component TaskButton inherits PanelButton {
+    in property <Task> task;
+    in property <bool> show-title;
+
+    active: root.task.active;
+    attention: root.task.attention;
+    indicator: root.task.running;
+    content-padding: root.show-title ? 8px : 0;
+
+    clicked => { Shell.activate-task(root.task.id); }
+    middle-clicked => { Shell.task-action(root.task.id, "new-instance"); }
+    right-clicked(x, y) => {
+        Shell.task-menu(root.task.id, self.absolute-position.x + x, self.absolute-position.y + y);
+    }
+    changed hovered => {
+        Shell.task-hover(root.task.id, self.hovered, self.absolute-position.x, self.absolute-position.y, self.width, self.height);
+    }
+
+    HorizontalLayout {
+        spacing: 6px;
+        alignment: root.show-title ? start : center;
+        Image {
+            source: root.task.icon;
+            width: Theme.icon-size;
+            height: Theme.icon-size;
+            opacity: root.task.running ? 1 : 0.75;
+        }
+        if root.show-title: Label {
+            text: root.task.title;
+            horizontal-stretch: 1;
+        }
+    }
+}
+
+export component Widget inherits Rectangle {
+    in property <bool> show-titles: false;
+    in property <int> max-item-width: 220;
+
+    property <int> count: Shell.tasks.length;
+    property <bool> titles: root.show-titles && !Shell.vertical;
+    // Square buttons as thick as the panel, or equal-width title buttons that shrink to fit.
+    property <length> square: Shell.vertical ? root.width : root.height;
+    property <length> item: root.titles
+        ? min(root.max-item-width * 1px, (root.width - (root.count - 1) * Theme.spacing) / max(root.count, 1))
+        : root.square;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    min-width: 0;
+    min-height: 0;
+
+    for task[i] in Shell.tasks: TaskButton {
+        task: task;
+        show-title: root.titles;
+        x: Shell.vertical ? 0 : i * (root.item + Theme.spacing);
+        y: Shell.vertical ? i * (root.item + Theme.spacing) : 0;
+        width: Shell.vertical ? root.width : root.item;
+        height: Shell.vertical ? root.item : root.height;
+        animate x, y { duration: 120ms; easing: ease-out; }
+    }
+}

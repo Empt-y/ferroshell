@@ -1,0 +1,37 @@
+id = "org.ferroshell.command-output"
+name = "Command Output"
+description = "Shows the output of a command, refreshed on an interval. Click to refresh."
+version = "1.0.0"
+api = 1
+
+[script]
+file = "logic.rhai"
+interval = 10
+
+[config.command]
+type = "string"
+default = "echo Hello from Ferroshell"
+ui = false
+label = "Command"
+description = "Run with cmd.exe; the first line of output is shown."
+
+[config.interval]
+type = "float"
+default = 10.0
+min = 0.25
+max = 86400.0
+ui = false
+label = "Refresh every (seconds)"
+
+[config.prefix]
+type = "string"
+default = ""
+ui = false
+label = "Text before the output"
+
+[config.max-text-width]
+type = "int"
+default = 300
+min = 20
+max = 2000
+label = "Maximum width"

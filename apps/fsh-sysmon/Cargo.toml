@@ -1,0 +1,18 @@
+[package]
+name = "fsh-sysmon"
+description = "Ferroshell plugin: CPU and memory usage for the System Monitor widget"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+fsh-plugin-sdk.workspace = true
+
+[dependencies.windows]
+version = "0.62"
+features = ["Win32_Foundation", "Win32_System_SystemInformation", "Win32_System_Threading"]
+
+# Talks to Win32 directly, so it opts out of the workspace-wide unsafe ban.
+[lints.clippy]
+unwrap_used = "warn"

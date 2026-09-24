@@ -1,0 +1,24 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { PanelButton, Label, DimLabel } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> format: "%H:%M";
+    in property <string> date-format: "%d/%m/%Y";
+    in property <bool> show-date: true;
+
+    horizontal-stretch: 0;
+    content-padding: 8px;
+    clicked => { Shell.invoke("calendar", ""); }
+
+    VerticalLayout {
+        alignment: center;
+        Label {
+            text: Shell.format-time(Shell.now, root.format);
+            horizontal-alignment: center;
+        }
+        if root.show-date && !Shell.vertical && Shell.thickness >= 36px: DimLabel {
+            text: Shell.format-time(Shell.now, root.date-format);
+            horizontal-alignment: center;
+        }
+    }
+}

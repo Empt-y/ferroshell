@@ -1,0 +1,415 @@
+import { Button, CheckBox, ComboBox, GroupBox, LineEdit, ListView, Palette, ScrollView, SpinBox, StandardListView,
+         Switch, TabWidget, TextEdit, VerticalBox, HorizontalBox } from "std-widgets.slint";
+
+export struct PanelInfo {
+    edge-index: int,
+    monitor-index: int,
+    thickness: int,
+    floating: bool,
+}
+
+export struct WidgetRow {
+    id: string,
+    name: string,
+    detail: string,
+    error: string,
+}
+
+// One setting in a widget's auto-generated form. `kind` is the manifest type.
+export struct Field {
+    key: string,
+    label: string,
+    description: string,
+    kind: string,
+    text: string,
+    checked: bool,
+    number: int,
+    minimum: int,
+    maximum: int,
+    options: [string],
+    option-index: int,
+    swatch: color,
+    customised: bool,
+    problem: string,
+}
+
+export struct PluginRow {
+    id: string,
+    state: string,
+    restarts: int,
+    error: string,
+}
+
+export global Backend {
+    // Status line and error banner (e.g. config.toml has an error).
+    in property <string> banner;
+    in property <string> status;
+    in property <string> shell-state;
+
+    // Panels.
+    in property <[StandardListViewItem]> panels;
+    in-out property <int> current-panel: 0;
+    in property <PanelInfo> panel;
+    in property <[string]> monitor-options;
+    callback select-panel(int);
+    callback add-panel();
+    callback remove-panel();
+    callback set-edge(int);
+    callback set-monitor(int);
+    callback set-thickness(int);
+    callback set-floating(bool);
+
+    // Widgets on the current panel.
+    in property <[WidgetRow]> widgets;
+    in-out property <int> current-widget: -1;
+    in property <[string]> addable-widgets;
+    callback select-widget(int);
+    callback add-widget(int);
+    callback remove-widget();
+    callback move-widget(int);
+
+    // Settings of the current widget.
+    in property <string> form-title;
+    in property <string> form-description;
+    in property <[Field]> fields;
+    callback set-text(string, string);
+    callback set-bool(string, bool);
+    callback set-number(string, int);
+    callback set-option(string, int);
+    callback reset-field(string);
+
+    // Appearance.
+    in property <[string]> themes;
+    in property <int> theme-index;
+    callback preview-theme(int);
+    callback apply-theme(int);
+
+    // Status and maintenance.
+    in property <[PluginRow]> plugins;
+    callback reload-shell();
+    callback restart-shell();
+    callback safe-mode(bool);
+    callback open-path(string);
+    callback refresh();
+}
+
+component SectionTitle inherits Text {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+component Hint inherits Text {
+    color: Palette.foreground.with-alpha(0.65);
+    font-size: 12px;
+    wrap: word-wrap;
+}
+
+component FieldEditor inherits VerticalLayout {
+    in property <Field> field;
+    spacing: 4px;
+
+    HorizontalLayout {
+        spacing: 8px;
+        Text {
+            text: root.field.label;
+            font-weight: root.field.customised ? 600 : 400;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        if root.field.customised: Button {
+            text: "Reset";
+            clicked => { Backend.reset-field(root.field.key); }
+        }
+    }
+
+    if root.field.kind == "bool": Switch {
+        text: root.field.checked ? "On" : "Off";
+        checked: root.field.checked;
+        toggled => { Backend.set-bool(root.field.key, self.checked); }
+    }
+    if root.field.kind == "int": SpinBox {
+        value: root.field.number;
+        minimum: root.field.minimum;
+        maximum: root.field.maximum;
+        edited(v) => { Backend.set-number(root.field.key, v); }
+    }
+    if root.field.kind == "enum": ComboBox {
+        model: root.field.options;
+        current-index: root.field.option-index;
+        selected => { Backend.set-option(root.field.key, self.current-index); }
+    }
+    if root.field.kind == "string" || root.field.kind == "float": LineEdit {
+        text: root.field.text;
+        accepted(t) => { Backend.set-text(root.field.key, t); }
+    }
+    if root.field.kind == "color": HorizontalLayout {
+        spacing: 8px;
+        Rectangle {
+            width: 28px;
+            border-radius: 4px;
+            border-width: 1px;
+            border-color: Palette.border;
+            background: root.field.swatch;
+        }
+        LineEdit {
+            text: root.field.text;
+            placeholder-text: "#rrggbb or #rrggbbaa";
+            accepted(t) => { Backend.set-text(root.field.key, t); }
+        }
+    }
+    if root.field.kind == "string-list": VerticalLayout {
+        spacing: 4px;
+        te := TextEdit {
+            text: root.field.text;
+            min-height: 90px;
+            wrap: no-wrap;
+        }
+        Button {
+            text: "Save list";
+            clicked => { Backend.set-text(root.field.key, te.text); }
+        }
+    }
+
+    if root.field.description != "": Hint { text: root.field.description; }
+    if root.field.problem != "": Text {
+        text: "⚠ " + root.field.problem;
+        color: #da4453;
+        wrap: word-wrap;
+    }
+}
+
+component PanelsPage inherits HorizontalBox {
+    // Left: panels.
+    VerticalLayout {
+        width: 200px;
+        spacing: 8px;
+        SectionTitle { text: "Panels"; }
+        StandardListView {
+            model: Backend.panels;
+            current-item: Backend.current-panel;
+            current-item-changed(i) => { Backend.select-panel(i); }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Button { text: "Add panel"; clicked => { Backend.add-panel(); } }
+            Button {
+                text: "Remove";
+                enabled: Backend.panels.length > 0;
+                clicked => { Backend.remove-panel(); }
+            }
+        }
+    }
+
+    // Middle: this panel's placement and widgets.
+    VerticalLayout {
+        width: 300px;
+        spacing: 8px;
+        if Backend.panels.length > 0: GroupBox {
+            title: "Placement";
+            vertical-stretch: 0;
+            VerticalLayout {
+                spacing: 8px;
+                alignment: start;
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "Edge"; vertical-alignment: center; width: 80px; }
+                    ComboBox {
+                        model: ["Top", "Bottom", "Left", "Right"];
+                        current-index: Backend.panel.edge-index;
+                        selected => { Backend.set-edge(self.current-index); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "Monitor"; vertical-alignment: center; width: 80px; }
+                    ComboBox {
+                        model: Backend.monitor-options;
+                        current-index: Backend.panel.monitor-index;
+                        selected => { Backend.set-monitor(self.current-index); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    Text { text: "Thickness"; vertical-alignment: center; width: 80px; }
+                    SpinBox {
+                        value: Backend.panel.thickness;
+                        minimum: 20;
+                        maximum: 200;
+                        edited(v) => { Backend.set-thickness(v); }
+                    }
+                }
+                Switch {
+                    text: "Floating";
+                    checked: Backend.panel.floating;
+                    toggled => { Backend.set-floating(self.checked); }
+                }
+            }
+        }
+
+        SectionTitle { text: "Widgets"; }
+        ListView {
+            vertical-stretch: 1;
+            for w[i] in Backend.widgets: Rectangle {
+                height: 44px;
+                border-radius: 4px;
+                background: i == Backend.current-widget ? Palette.selection-background.with-alpha(0.35)
+                    : ta.has-hover ? Palette.alternate-background : transparent;
+                ta := TouchArea { clicked => { Backend.select-widget(i); } }
+                VerticalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    alignment: center;
+                    Text { text: w.name; font-weight: 500; }
+                    Text {
+                        text: w.error != "" ? "⚠ " + w.error : w.detail;
+                        color: w.error != "" ? #da4453 : Palette.foreground.with-alpha(0.6);
+                        font-size: 11px;
+                        overflow: elide;
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            Button { text: "↑"; enabled: Backend.current-widget > 0; clicked => { Backend.move-widget(-1); } }
+            Button {
+                text: "↓";
+                enabled: Backend.current-widget >= 0 && Backend.current-widget < Backend.widgets.length - 1;
+                clicked => { Backend.move-widget(1); }
+            }
+            Button { text: "Remove"; enabled: Backend.current-widget >= 0; clicked => { Backend.remove-widget(); } }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            add := ComboBox { model: Backend.addable-widgets; }
+            Button {
+                text: "Add";
+                enabled: Backend.addable-widgets.length > 0 && Backend.panels.length > 0;
+                clicked => { Backend.add-widget(add.current-index); }
+            }
+        }
+    }
+
+    // Right: the selected widget's settings.
+    VerticalLayout {
+        spacing: 8px;
+        SectionTitle { text: Backend.form-title; }
+        if Backend.form-description != "": Hint { text: Backend.form-description; }
+        ScrollView {
+            VerticalLayout {
+                spacing: 16px;
+                padding-right: 12px;
+                for f in Backend.fields: FieldEditor { field: f; }
+                if Backend.fields.length == 0 && Backend.current-widget >= 0: Hint { text: "This widget has no settings."; }
+                Rectangle { vertical-stretch: 1; }
+            }
+        }
+    }
+}
+
+component AppearancePage inherits VerticalBox {
+    alignment: start;
+    SectionTitle { text: "Theme"; }
+    Hint {
+        text: "Themes live in %APPDATA%\\ferroshell\\themes\\<name>\\theme.toml (copy a built-in one to start). "
+            + "\"auto\" follows Windows light/dark mode. Selecting a theme previews it; Apply saves it.";
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        themes := ComboBox {
+            width: 260px;
+            model: Backend.themes;
+            current-index: Backend.theme-index;
+            selected => { Backend.preview-theme(self.current-index); }
+        }
+        Button { text: "Apply"; primary: true; clicked => { Backend.apply-theme(themes.current-index); } }
+    }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        Button { text: "Open themes folder"; clicked => { Backend.open-path("themes"); } }
+        Button { text: "Open built-in themes"; clicked => { Backend.open-path("builtin-themes"); } }
+    }
+}
+
+component StatusPage inherits VerticalBox {
+    SectionTitle { text: "Shell"; }
+    Text { text: Backend.shell-state; wrap: word-wrap; }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        Button { text: "Reload configuration"; clicked => { Backend.reload-shell(); } }
+        Button { text: "Restart shell"; clicked => { Backend.restart-shell(); } }
+        Button { text: "Restart in safe mode"; clicked => { Backend.safe-mode(true); } }
+        Button { text: "Leave safe mode"; clicked => { Backend.safe-mode(false); } }
+    }
+
+    SectionTitle { text: "Plugins"; }
+    if Backend.plugins.length == 0: Hint { text: "No plugins are running."; }
+    for p in Backend.plugins: HorizontalLayout {
+        spacing: 12px;
+        Text { text: p.id; width: 260px; }
+        Text {
+            text: p.state;
+            width: 90px;
+            color: p.state == "running" ? #27ae60 : p.state == "disabled" ? #da4453 : #f67400;
+        }
+        Text { text: p.restarts + " restarts"; width: 90px; }
+        Text { text: p.error; overflow: elide; color: Palette.foreground.with-alpha(0.65); }
+    }
+
+    SectionTitle { text: "Files"; }
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        Button { text: "Open config.toml"; clicked => { Backend.open-path("config"); } }
+        Button { text: "Widgets folder"; clicked => { Backend.open-path("widgets"); } }
+        Button { text: "Built-in widgets"; clicked => { Backend.open-path("builtin-widgets"); } }
+        Button { text: "Logs"; clicked => { Backend.open-path("logs"); } }
+    }
+
+    SectionTitle { text: "Replacing Explorer"; }
+    Hint {
+        text: "Ferroshell currently runs alongside Explorer and hides Explorer's taskbar. Replacing Explorer "
+            + "as your login shell is a later milestone (it needs a system tray first). If anything goes wrong, "
+            + "press Ctrl+Alt+Shift+E to stop Ferroshell and bring Explorer's taskbar back, or run "
+            + "`fsh-ctl restore-explorer`.";
+    }
+    Rectangle { vertical-stretch: 1; }
+}
+
+export component SettingsWindow inherits Window {
+    title: "Ferroshell Settings";
+    preferred-width: 1100px;
+    preferred-height: 640px;
+    min-width: 900px;
+    min-height: 480px;
+
+    VerticalLayout {
+        if Backend.banner != "": Rectangle {
+            height: 36px;
+            background: #da445333;
+            Text {
+                text: "⚠ " + Backend.banner;
+                color: Palette.foreground;
+                wrap: word-wrap;
+                x: 12px;
+                width: parent.width - 24px;
+                vertical-alignment: center;
+            }
+        }
+        TabWidget {
+            Tab { title: "Panels & widgets"; PanelsPage { } }
+            Tab { title: "Appearance"; AppearancePage { } }
+            Tab { title: "Status"; StatusPage { } }
+        }
+        HorizontalLayout {
+            padding: 6px;
+            padding-left: 12px;
+            Text { text: Backend.status; color: Palette.foreground.with-alpha(0.65); font-size: 12px; }
+            Rectangle { horizontal-stretch: 1; }
+            Button { text: "Refresh"; clicked => { Backend.refresh(); } }
+        }
+    }
+}

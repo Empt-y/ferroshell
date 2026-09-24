@@ -1,0 +1,20 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { PanelButton, Label } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+    in property <int> max-text-width: 300;
+
+    property <string> text: Shell.source(root.instance-id + "/text", Shell.sources-revision);
+    property <string> error: Shell.source(root.instance-id + "/error", Shell.sources-revision);
+
+    horizontal-stretch: 0;
+    content-padding: 8px;
+    clicked => { Shell.invoke("script:" + root.instance-id + "/on_click", ""); }
+
+    Label {
+        text: root.error != "" && root.text == "" ? "⚠ " + root.error : root.text;
+        color: root.error != "" && root.text == "" ? Theme.error : Theme.foreground;
+        max-width: root.max-text-width * 1px;
+    }
+}

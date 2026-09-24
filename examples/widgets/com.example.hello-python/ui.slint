@@ -1,0 +1,16 @@
+import { Shell } from "@ferroshell/api.slint";
+import { PanelButton, Label, DimLabel } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+
+    horizontal-stretch: 0;
+    content-padding: 8px;
+    clicked => { Shell.invoke("plugin:" + root.instance-id + "/clicked", "hi"); }
+
+    VerticalLayout {
+        alignment: center;
+        Label { text: Shell.source(root.instance-id + "/greeting", Shell.sources-revision) + " from Python"; }
+        DimLabel { text: Shell.source("com.example.hello-python/time", Shell.sources-revision); }
+    }
+}

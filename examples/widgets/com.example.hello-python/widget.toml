@@ -1,0 +1,17 @@
+id = "com.example.hello-python"
+name = "Hello (Python plugin)"
+description = "Example: a plugin written in Python publishing the time every second."
+version = "1.0.0"
+api = 1
+
+[plugin]
+exec = "python"
+args = ["plugin.py"]
+max-memory-mb = 128
+
+[config.greeting]
+type = "string"
+default = "Hello"
+ui = false
+label = "Greeting"
+description = "Sent to the plugin; it publishes it back per instance."

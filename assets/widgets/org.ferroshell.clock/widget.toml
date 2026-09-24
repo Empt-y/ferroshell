@@ -1,0 +1,22 @@
+id = "org.ferroshell.clock"
+name = "Digital Clock"
+description = "Time and date."
+version = "1.0.0"
+api = 1
+
+[config.format]
+type = "string"
+default = "%H:%M"
+label = "Time format"
+description = "strftime-style, e.g. %H:%M, %I:%M %p, %H:%M:%S"
+
+[config.date-format]
+type = "string"
+default = "%d/%m/%Y"
+label = "Date format"
+
+[config.show-date]
+type = "bool"
+default = true
+label = "Show date"
+description = "Shown below the time when the panel is thick enough."

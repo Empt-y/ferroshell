@@ -1,0 +1,17 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { PanelButton } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    horizontal-stretch: 0;
+    content-padding: 5px;
+    clicked => { Shell.invoke("show-desktop", ""); }
+
+    // A small monitor outline.
+    Rectangle {
+        width: Theme.icon-size * 0.7;
+        height: self.width * 0.7;
+        border-width: 1.5px;
+        border-color: Theme.foreground-dim;
+        border-radius: 2px;
+    }
+}
