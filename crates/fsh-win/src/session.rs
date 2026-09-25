@@ -135,6 +135,28 @@ pub fn account_picture() -> Option<PathBuf> {
         .max_by_key(|p| std::fs::metadata(p).map(|m| m.len()).unwrap_or(0))
 }
 
+/// Tell Windows the shell's desktop is up, so the sign-in "Welcome"/"Preparing Windows"
+/// screen goes away (Explorer does this when it's the shell). Sets the named events Windows
+/// waits on; returns which ones existed. Harmless when Explorer is the shell.
+pub fn signal_shell_ready() -> Vec<&'static str> {
+    use windows::Win32::System::Threading::{EVENT_MODIFY_STATE, OpenEventW, SetEvent};
+    let mut signalled = Vec::new();
+    for (name, wide_name) in [
+        ("ShellDesktopSwitchEvent", w!("ShellDesktopSwitchEvent")),
+        ("msgina: ShellReadyEvent", w!("Global\\msgina: ShellReadyEvent")),
+    ] {
+        if let Ok(h) = unsafe { OpenEventW(EVENT_MODIFY_STATE, false, wide_name) } {
+            if unsafe { SetEvent(h) }.is_ok() {
+                signalled.push(name);
+            }
+            unsafe {
+                let _ = CloseHandle(h);
+            }
+        }
+    }
+    signalled
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

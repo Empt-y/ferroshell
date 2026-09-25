@@ -28,20 +28,23 @@ mod watch;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use fsh_common::{SAFE_MODE_FLAG, SUPERVISOR_FLAG, exit_codes, paths};
+use fsh_common::{REPLACE_FLAG, SAFE_MODE_FLAG, SUPERVISOR_FLAG, exit_codes, paths};
 use fsh_win::{crash, process};
 
 pub struct Args {
     pub supervisor: Option<u32>,
     pub safe_mode: bool,
+    /// Ferroshell is the login shell (the supervisor was started by Winlogon).
+    pub replace: bool,
 }
 
 fn parse_args() -> anyhow::Result<Args> {
-    let mut args = Args { supervisor: None, safe_mode: false };
+    let mut args = Args { supervisor: None, safe_mode: false, replace: false };
     let mut it = std::env::args().skip(1);
     while let Some(a) = it.next() {
         match a.as_str() {
             SAFE_MODE_FLAG => args.safe_mode = true,
+            REPLACE_FLAG => args.replace = true,
             SUPERVISOR_FLAG => {
                 let pid = it.next().ok_or_else(|| anyhow::anyhow!("{SUPERVISOR_FLAG} needs a pid"))?;
                 args.supervisor = Some(pid.parse()?);
@@ -115,7 +118,7 @@ fn run() -> anyhow::Result<i32> {
     );
 
     if let Some(pid) = args.supervisor {
-        watch_supervisor(pid);
+        watch_supervisor(pid, args.replace);
     }
 
     // Safe mode uses the software renderer in case a GPU driver is what keeps crashing us.
@@ -139,10 +142,16 @@ fn run() -> anyhow::Result<i32> {
 }
 
 /// If the supervisor dies, nobody else will restore Explorer's taskbar — do it and exit.
-fn watch_supervisor(pid: u32) {
+fn watch_supervisor(pid: u32, replace: bool) {
     let spawned = std::thread::Builder::new().name("supervisor-watch".into()).spawn(move || {
         let _ = process::wait_for_exit(pid);
-        tracing::warn!("supervisor (pid {pid}) is gone; restoring Explorer and exiting");
+        if replace {
+            // We're the login shell: nothing else will bring a desktop back.
+            tracing::warn!("supervisor (pid {pid}) is gone; relaunching it");
+            relaunch_session();
+        } else {
+            tracing::warn!("supervisor (pid {pid}) is gone; restoring Explorer and exiting");
+        }
         fsh_win::taskbar::restore(&paths::taskbar_state_file());
         // Give the UI thread a moment to remove app bars cleanly, then exit regardless.
         let _ = slint::invoke_from_event_loop(|| app::request_exit(exit_codes::ORPHANED));
@@ -151,5 +160,27 @@ fn watch_supervisor(pid: u32) {
     });
     if let Err(e) = spawned {
         tracing::warn!("could not watch supervisor: {e}");
+    }
+}
+
+/// Start a new `fsh-session --replace` next to this exe (it then starts a fresh shell once
+/// this one has exited), or Explorer if the session keeps dying.
+fn relaunch_session() {
+    let file = paths::state_dir().join("session-relaunches.txt");
+    let now = chrono::Utc::now().timestamp();
+    let history: Vec<i64> = std::fs::read_to_string(&file).unwrap_or_default().lines().filter_map(|l| l.trim().parse().ok()).collect();
+    let allowed = fsh_core::session::relaunch_allowed(&history, now, 60, 3);
+    let mut kept: Vec<String> = history.iter().filter(|&&t| now - t < 60).map(i64::to_string).collect();
+    kept.push(now.to_string());
+    let _ = std::fs::write(&file, kept.join("\n"));
+    let session = paths::exe_dir().join("fsh-session.exe");
+    let result = if allowed && session.is_file() {
+        std::process::Command::new(&session).arg(REPLACE_FLAG).spawn().map(|_| ())
+    } else {
+        tracing::error!("the session keeps dying (or is missing); starting Explorer instead");
+        std::process::Command::new("explorer.exe").spawn().map(|_| ())
+    };
+    if let Err(e) = result {
+        tracing::error!("could not relaunch: {e}");
     }
 }

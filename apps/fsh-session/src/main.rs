@@ -57,7 +57,7 @@ fn main() -> ExitCode {
         match arg.as_str() {
             "--safe-mode" => opts.safe_mode = true,
             "--keep-explorer-taskbar" => opts.hide_explorer_taskbar = false,
-            "--replace" => opts.replace = true,
+            fsh_common::REPLACE_FLAG => opts.replace = true,
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return ExitCode::SUCCESS;
@@ -85,6 +85,12 @@ fn run(opts: Options) -> anyhow::Result<()> {
         anyhow::bail!("fsh-session is already running (use `fsh-ctl status`)");
     };
     tracing::info!("fsh-session {} starting: {opts:?}", env!("CARGO_PKG_VERSION"));
+    if opts.replace && !opts.shell_exe.is_file() {
+        // We're the login shell but can't run: don't leave a black screen.
+        tracing::error!("{} is missing; starting Explorer instead", opts.shell_exe.display());
+        std::process::Command::new("explorer.exe").spawn()?;
+        return Ok(());
+    }
     if taskbar::needs_restore(&paths::taskbar_state_file()) {
         tracing::warn!("previous session didn't restore Explorer's taskbar; its saved state will be reused");
     }
@@ -112,7 +118,7 @@ fn run(opts: Options) -> anyhow::Result<()> {
                 WM_QUERYENDSESSION => return Some(1),
                 WM_ENDSESSION if wparam != 0 => {
                     tracing::info!("session ending");
-                    sup_w.restore_desktop();
+                    sup_w.session_ending();
                     return Some(0);
                 }
                 WM_SUPERVISOR_DONE => window::post_quit(0),

@@ -67,6 +67,9 @@ pub mod exit_codes {
 pub const SAFE_MODE_FLAG: &str = "--safe-mode";
 /// Command-line flag carrying the supervisor's PID.
 pub const SUPERVISOR_FLAG: &str = "--supervisor";
+/// Command-line flag (for both `fsh-session` and `fsh-shell`): Ferroshell is the login
+/// shell Winlogon started, in place of Explorer.
+pub const REPLACE_FLAG: &str = "--replace";
 
 /// Initialise logging to a daily-rolling file in [`paths::log_dir`] plus stderr.
 /// Keep the returned guard alive for the life of the process so buffered lines are flushed.
