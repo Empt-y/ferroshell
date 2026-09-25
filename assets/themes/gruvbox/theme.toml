@@ -1,0 +1,44 @@
+# Gruvbox: Retro groove: warm, earthy and square-ish (morhetz/gruvbox).
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Gruvbox"
+# "acrylic", "mica" or "none".
+backdrop = "none"
+font = ""
+
+[colors]
+panel-background = "#282828"
+panel-border = "#504945"
+foreground = "#ebdbb2"
+foreground-dim = "#a89984"
+accent = "#fabd2f"
+hover = "#3c3836"
+pressed = "#504945"
+highlight = "#fabd2f33"
+attention = "#fe8019"
+popup-background = "#282828"
+error = "#fb4934"
+accent-foreground = "#282828"
+indicator = "#b8bb26"
+popup-border = "#665c54"
+shadow = "#00000080"
+glow = "#fabd2f55"
+
+[metrics]
+radius = 2
+panel-radius = 2
+popup-radius = 3
+border-width = 2
+shadow-blur = 10
+indicator-size = 3
+animation-speed = 0.8
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "line"
+hover-effect = "underline"
+open-animation = "fade"

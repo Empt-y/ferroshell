@@ -104,6 +104,11 @@ export global Theme {
     in property <color> attention: #f67400;
     in property <color> popup-background: #202326f5;
     in property <color> error: #da4453;
+    in property <color> accent-foreground: #ffffff;
+    in property <color> indicator: #3daee9;
+    in property <color> popup-border: #ffffff1a;
+    in property <color> shadow: #00000066;
+    in property <color> glow: #3daee980;
 
     in property <length> radius: 4px;
     in property <length> panel-radius: 8px;
@@ -112,5 +117,23 @@ export global Theme {
     in property <length> padding: 3px;
     in property <length> font-size: 13px;
     in property <length> icon-size: 24px;
+    in property <length> popup-radius: 10px;
+    in property <length> border-width: 1px;
+    in property <length> shadow-blur: 16px;
+    in property <length> indicator-size: 2px;
     in property <string> font-family;
+
+    // Motion. `animation-speed` scales every animation (0 = none; also 0 when Windows'
+    // "Animation effects" is off). Use these durations rather than fixed ones.
+    in property <float> animation-speed: 1;
+    out property <duration> fast: 90ms * root.animation-speed;
+    out property <duration> normal: 180ms * root.animation-speed;
+    out property <duration> slow: 320ms * root.animation-speed;
+
+    // "line", "dot", "pill", "glow" or "none".
+    in property <string> indicator-style: "line";
+    // "fill", "lift", "glow" or "underline".
+    in property <string> hover-effect: "fill";
+    // "slide", "fade", "zoom" or "none".
+    in property <string> open-animation: "slide";
 }

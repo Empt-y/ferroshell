@@ -4,7 +4,7 @@
 // the component name, properties and callbacks.
 
 import { Theme } from "api.slint";
-import { GlyphIcon } from "controls.slint";
+import { GlyphIcon, Reveal } from "controls.slint";
 export { Theme }
 
 export component BannerWindow inherits Window {
@@ -28,62 +28,72 @@ export component BannerWindow inherits Window {
     default-font-size: Theme.font-size;
     default-font-family: Theme.font-family;
 
-    Rectangle {
-        background: touch.has-hover ? Theme.popup-background.brighter(0.08) : Theme.popup-background;
-        // Matches the rounded corners Windows 11 gives the window (and its backdrop).
-        border-radius: 8px;
-        border-width: 1px;
-        border-color: Theme.panel-border;
-    }
-    touch := TouchArea {
-        clicked => { root.clicked(); }
-    }
-    HorizontalLayout {
-        padding: 14px;
-        spacing: 12px;
-        if root.has-icon: VerticalLayout {
-            alignment: start;
-            Image {
-                width: 32px;
-                height: 32px;
-                source: root.app-icon;
-                image-fit: contain;
-            }
+    // Set false then true by the shell to play the theme's open animation.
+    in property <bool> opened: true;
+    in property <string> open-from: "right";
+
+    reveal := Reveal {
+        open: root.opened;
+        from: root.open-from;
+        Rectangle {
+            background: touch.has-hover ? Theme.popup-background.brighter(0.08) : Theme.popup-background;
+            animate background { duration: Theme.fast; }
+            // Matches the rounded corners Windows 11 gives the window (and its backdrop).
+            border-radius: Theme.popup-radius;
+            border-width: Theme.border-width;
+            border-color: Theme.panel-border;
         }
-        VerticalLayout {
-            spacing: 3px;
-            alignment: start;
-            horizontal-stretch: 1;
-            HorizontalLayout {
-                Text {
-                    text: root.more > 0 ? root.app + "  ·  " + root.more + " more" : root.app;
-                    color: Theme.foreground-dim;
-                    font-size: Theme.font-size * 0.85;
+        touch := TouchArea {
+            clicked => { root.clicked(); }
+        }
+        HorizontalLayout {
+            padding: 14px;
+            spacing: 12px;
+            if root.has-icon: VerticalLayout {
+                alignment: start;
+                Image {
+                    width: 32px;
+                    height: 32px;
+                    source: root.app-icon;
+                    image-fit: contain;
+                }
+            }
+            VerticalLayout {
+                spacing: 3px;
+                alignment: start;
+                horizontal-stretch: 1;
+                HorizontalLayout {
+                    Text {
+                        text: root.more > 0 ? root.app + "  ·  " + root.more + " more" : root.app;
+                        color: Theme.foreground-dim;
+                        font-size: Theme.font-size * 0.85;
+                        overflow: elide;
+                        horizontal-stretch: 1;
+                    }
+                    // Close.
+                    Rectangle {
+                        width: 18px;
+                        height: 18px;
+                        border-radius: 9px;
+                        background: close.has-hover ? Theme.hover : transparent;
+                        animate background { duration: Theme.fast; }
+                        GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: 9px; height: 9px; kind: "close"; }
+                        close := TouchArea { clicked => { root.closed(); } }
+                    }
+                }
+                if root.summary != "": Text {
+                    text: root.summary;
+                    color: Theme.foreground;
+                    font-weight: 600;
                     overflow: elide;
-                    horizontal-stretch: 1;
                 }
-                // Close.
-                Rectangle {
-                    width: 18px;
-                    height: 18px;
-                    border-radius: 9px;
-                    background: close.has-hover ? Theme.hover : transparent;
-                    GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: 9px; height: 9px; kind: "close"; }
-                    close := TouchArea { clicked => { root.closed(); } }
+                if root.body != "": Text {
+                    text: root.body;
+                    color: Theme.foreground;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    max-height: Theme.font-size * 2.8;
                 }
-            }
-            if root.summary != "": Text {
-                text: root.summary;
-                color: Theme.foreground;
-                font-weight: 600;
-                overflow: elide;
-            }
-            if root.body != "": Text {
-                text: root.body;
-                color: Theme.foreground;
-                wrap: word-wrap;
-                overflow: elide;
-                max-height: Theme.font-size * 2.8;
             }
         }
     }

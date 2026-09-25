@@ -193,6 +193,8 @@ impl App {
                 tracing::error!("popup: {e}");
                 return;
             }
+            let side = st.panels.iter().find(|p| &p.key == key).map_or("below", |p| crate::app::open_side(p.config.edge));
+            crate::app::play_open(i, side);
         }
         *self.popups.open.borrow_mut() = Some(instance.to_owned());
         self.popups.attach_timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), move || {

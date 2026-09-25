@@ -21,8 +21,9 @@ export component DimLabel inherits Label {
 // laid out horizontally with padding. Use `clicked`, `middle-clicked` and
 // `right-clicked(x, y)` (position relative to the button).
 //
-// `indicator` draws a short line along the panel's inner edge (e.g. "app is running");
-// with `active` it becomes longer and uses the accent colour.
+// `indicator` marks the button along the panel's screen edge (e.g. "app is running"); with
+// `active` it grows and uses the indicator colour. Its look is the theme's
+// `indicator-style`, and hovering does the theme's `hover-effect`.
 export component PanelButton inherits Rectangle {
     in property <bool> active;
     in property <bool> attention;
@@ -40,45 +41,87 @@ export component PanelButton inherits Rectangle {
     in property <bool> wheel;
     callback scrolled(/* notches */ int);
 
+    property <bool> hot: touch.has-hover && root.enabled;
+    property <string> effect: Theme.hover-effect;
+    property <string> style: Theme.indicator-style;
+    property <length> along: Shell.vertical ? root.height : root.width;
+    // Fade in when first shown (a task appearing, a widget being added).
+    property <bool> appeared;
+    init => { root.appeared = true; }
+    opacity: root.appeared ? 1 : 0;
+    animate opacity { duration: Theme.normal; easing: ease-out; }
+
     border-radius: Theme.radius;
     background: touch.pressed ? Theme.pressed
-        : touch.has-hover ? Theme.hover
+        : root.hot && root.effect != "underline" ? Theme.hover
         : root.active ? Theme.highlight
         : transparent;
-    animate background { duration: 90ms; }
+    animate background { duration: Theme.fast; }
+    drop-shadow-blur: root.hot && root.effect == "glow" ? max(6px, Theme.shadow-blur * 0.6) : 0;
+    drop-shadow-color: Theme.glow;
+    animate drop-shadow-blur { duration: Theme.normal; easing: ease-out; }
 
     // Content is centred on both axes; stretchy children (e.g. a title label) still fill.
-    VerticalLayout {
-        alignment: center;
-        padding-left: root.content-padding;
-        padding-right: root.content-padding;
-        HorizontalLayout {
-            spacing: 6px;
+    Rectangle {
+        transform-scale: touch.pressed ? 0.9 : root.hot && root.effect == "lift" ? 1.12 : 1.0;
+        animate transform-scale { duration: Theme.normal; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
+        VerticalLayout {
             alignment: center;
-            @children
+            padding-left: root.content-padding;
+            padding-right: root.content-padding;
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: center;
+                @children
+            }
         }
     }
 
-    if root.indicator && !root.attention: Rectangle {
-        property <length> len: root.active ? min(20px, (Shell.vertical ? parent.height : parent.width) - 8px) : 8px;
+    // Hover effect "underline": a bar that grows on the inner side (away from the indicator).
+    if root.effect == "underline": Rectangle {
+        property <length> len: root.hot ? root.along * 0.6 : 0;
         width: Shell.vertical ? 2px : self.len;
         height: Shell.vertical ? self.len : 2px;
         border-radius: 1px;
-        background: root.active ? Theme.accent : Theme.foreground-dim;
+        background: Theme.accent;
+        x: Shell.vertical ? (Shell.edge == "left" ? parent.width - 3px : 1px) : (parent.width - self.width) / 2;
+        y: Shell.vertical ? (parent.height - self.height) / 2 : (Shell.edge == "top" ? parent.height - 3px : 1px);
+        animate width, height { duration: Theme.normal; easing: ease-out; }
+    }
+
+    if root.indicator && !root.attention && root.style != "none": Rectangle {
+        property <length> thick: root.style == "dot" ? Theme.indicator-size * 2.5
+            : root.style == "pill" ? Theme.indicator-size * 1.5
+            : Theme.indicator-size;
+        property <length> len: root.style == "dot" ? (root.active ? self.thick * 3.5 : self.thick)
+            : root.style == "pill" ? (root.active ? root.along * 0.55 : min(14px, root.along * 0.3))
+            : (root.active ? min(20px, root.along - 8px) : 8px);
+        width: Shell.vertical ? self.thick : self.len;
+        height: Shell.vertical ? self.len : self.thick;
+        border-radius: self.thick / 2;
+        background: root.active ? Theme.indicator : Theme.foreground-dim;
+        drop-shadow-blur: root.style == "glow" ? (root.active ? 10px : 5px) : 0;
+        drop-shadow-color: root.active ? Theme.glow : Theme.foreground-dim.with-alpha(0.4);
         // Along the screen edge, like Plasma and Windows.
         x: Shell.vertical ? (Shell.edge == "left" ? 1px : parent.width - self.width - 1px) : (parent.width - self.width) / 2;
         y: Shell.vertical ? (parent.height - self.height) / 2 : (Shell.edge == "top" ? 1px : parent.height - self.height - 1px);
-        animate width, height { duration: 120ms; }
+        animate width, height, background, drop-shadow-blur { duration: Theme.normal; easing: ease-out; }
     }
 
-    // Attention: a bar along the screen edge.
+    // Attention: a pulsing bar along the screen edge.
     if root.attention: Rectangle {
+        property <bool> pulse;
+        init => { self.pulse = true; }
         background: Theme.attention;
         border-radius: 1px;
         height: Shell.vertical ? parent.height - 8px : 3px;
         width: Shell.vertical ? 3px : parent.width - 8px;
         x: Shell.edge == "left" ? 0 : Shell.edge == "right" ? parent.width - self.width : 4px;
         y: Shell.edge == "top" ? 0 : Shell.edge == "bottom" ? parent.height - self.height : 4px;
+        drop-shadow-blur: 6px;
+        drop-shadow-color: Theme.attention.with-alpha(0.6);
+        opacity: self.pulse && Theme.animation-speed > 0 ? 0.35 : 1;
+        animate opacity { duration: 700ms; iteration-count: -1; direction: alternate; easing: ease-in-out; }
     }
 
     touch := TouchArea {
@@ -104,12 +147,36 @@ export component PanelButton inherits Rectangle {
     }
 }
 
+// Plays the theme's `open-animation` on its content when `open` turns true: the shell
+// shows a window with `open` false, then sets it (popups, the launcher, banners, the OSD).
+// `from` is the side it slides in from: "below", "above", "left" or "right".
+export component Reveal inherits Rectangle {
+    in property <bool> open: true;
+    in property <string> from: "below";
+    property <string> style: Theme.open-animation;
+    property <bool> on: root.open || root.style == "none";
+    property <length> offset: 14px;
+    opacity: root.on ? 1 : 0;
+    transform-scale: root.on || root.style != "zoom" ? 1.0 : 0.94;
+    animate opacity { duration: Theme.normal; easing: ease-out; }
+    animate transform-scale { duration: Theme.slow; easing: cubic-bezier(0.2, 0.9, 0.3, 1.1); }
+    Rectangle {
+        x: root.on || root.style != "slide" ? 0 : root.from == "left" ? -root.offset : root.from == "right" ? root.offset : 0;
+        y: root.on || root.style != "slide" ? 0 : root.from == "above" ? -root.offset : root.from == "below" ? root.offset : 0;
+        width: parent.width;
+        height: parent.height;
+        animate x, y { duration: Theme.slow; easing: cubic-bezier(0.16, 1, 0.3, 1); }
+        @children
+    }
+}
+
 // Shown by the shell in place of a widget that failed to load. Hover shows the reason.
 export component ErrorWidget inherits Rectangle {
     in property <string> widget-id;
     in property <string> message;
     border-radius: Theme.radius;
     background: touch.has-hover ? Theme.error.with-alpha(0.35) : Theme.error.with-alpha(0.2);
+    animate background { duration: Theme.fast; }
     min-width: 28px;
     horizontal-stretch: 0;
 
@@ -184,14 +251,21 @@ export component Slider inherits Rectangle {
         height: 4px;
         border-radius: 2px;
         background: Theme.accent;
+        animate width { duration: touch.pressed ? 0ms : Theme.fast; }
     }
     Rectangle {
-        x: (parent.width - root.knob) * min(1, root.shown / max(root.maximum, 0.001));
+        property <length> size: touch.pressed ? root.knob + 4px : touch.has-hover || focus.has-focus ? root.knob + 2px : root.knob;
+        x: (parent.width - root.knob) * min(1, root.shown / max(root.maximum, 0.001)) - (self.size - root.knob) / 2;
         y: (parent.height - self.height) / 2;
-        width: root.knob;
-        height: root.knob;
+        width: self.size;
+        height: self.size;
         border-radius: self.width / 2;
+        drop-shadow-blur: 4px;
+        drop-shadow-color: Theme.shadow;
+        animate width, height { duration: Theme.fast; easing: ease-out; }
+        animate x { duration: touch.pressed ? 0ms : Theme.fast; }
         background: touch.has-hover || focus.has-focus ? Theme.foreground : Theme.foreground.with-alpha(0.9);
+        animate background { duration: Theme.fast; }
         border-width: focus.has-focus ? 2px : 0;
         border-color: Theme.accent;
     }
@@ -247,6 +321,7 @@ export component IconButton inherits Rectangle {
         : touch.has-hover ? Theme.hover
         : root.checked ? Theme.highlight
         : transparent;
+    animate background { duration: Theme.fast; }
     opacity: root.enabled ? 1 : 0.4;
     accessible-role: button;
     accessible-label: root.tooltip;
@@ -254,7 +329,11 @@ export component IconButton inherits Rectangle {
         enabled: root.enabled;
         clicked => { root.clicked(); }
     }
-    @children
+    Rectangle {
+        transform-scale: touch.pressed ? 0.86 : 1.0;
+        animate transform-scale { duration: Theme.fast; easing: ease-out; }
+        @children
+    }
 }
 
 // A row in a popup list (a device, a network, ...): highlighted on hover, and marked when
@@ -265,6 +344,7 @@ export component ListRow inherits Rectangle {
     height: 34px;
     border-radius: Theme.radius;
     background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : root.selected ? Theme.highlight : transparent;
+    animate background { duration: Theme.fast; }
     touch := TouchArea { clicked => { root.clicked(); } }
     HorizontalLayout {
         padding-left: 10px;
@@ -367,6 +447,7 @@ export component WifiIcon inherits Rectangle {
         y: 17px - self.height;
         border-radius: 1px;
         background: root.off ? root.dim.with-alpha(0.4) : self.level <= root.bars ? root.tint : root.dim.with-alpha(0.4);
+        animate background { duration: Theme.fast; }
     }
     if root.off: Path {
         viewbox-width: 24;
@@ -506,6 +587,7 @@ export component BatteryIcon inherits Rectangle {
             width: max(0px, (parent.width - 4px) * min(100, root.percent) / 100);
             border-radius: 1px;
             background: root.low ? Theme.error : root.tint;
+            animate background { duration: Theme.fast; }
         }
     }
     // Terminal nub.
@@ -516,6 +598,7 @@ export component BatteryIcon inherits Rectangle {
         height: parent.height * 0.45;
         border-radius: 1px;
         background: root.low ? Theme.error : root.tint;
+        animate background { duration: Theme.fast; }
     }
     if root.charging: Path {
         x: (body.width - self.width) / 2;
@@ -541,17 +624,20 @@ export component Toggle inherits Rectangle {
     border-radius: self.height / 2;
     background: !root.enabled ? Theme.foreground-dim.with-alpha(0.2) : root.checked ? Theme.accent : Theme.foreground-dim.with-alpha(0.35);
     opacity: root.enabled ? 1 : 0.6;
-    animate background { duration: 100ms; }
+    animate background { duration: Theme.normal; }
     Rectangle {
-        width: 16px;
+        width: touch.pressed ? 21px : 16px;
         height: 16px;
         x: root.checked ? parent.width - self.width - 3px : 3px;
         y: (parent.height - self.height) / 2;
-        border-radius: self.width / 2;
-        background: white;
-        animate x { duration: 100ms; easing: ease-out; }
+        border-radius: self.height / 2;
+        background: root.checked ? Theme.accent-foreground : white;
+        animate background { duration: Theme.fast; }
+        drop-shadow-blur: 3px;
+        drop-shadow-color: Theme.shadow;
+        animate x, width { duration: Theme.normal; easing: cubic-bezier(0.34, 1.4, 0.64, 1); }
     }
-    TouchArea {
+    touch := TouchArea {
         enabled: root.enabled;
         clicked => { root.toggled(!root.checked); }
     }

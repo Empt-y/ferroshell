@@ -18,13 +18,16 @@ pub fn apply(instance: &ComponentInstance, theme: &Theme, accent: Option<Rgba>) 
     for (name, value) in &theme.colors {
         let v = match (name.as_str(), accent) {
             ("accent", Some(a)) => a,
-            ("highlight", Some(a)) => a.with_alpha(value.a),
+            ("highlight" | "indicator" | "glow", Some(a)) => a.with_alpha(value.a),
             _ => *value,
         };
         set(name, color(v));
     }
     for (name, value) in &theme.metrics {
         set(name, Value::Number(f64::from(*value)));
+    }
+    for (name, value) in &theme.styles {
+        set(name, Value::String(SharedString::from(value.as_str())));
     }
     set("font-family", Value::String(SharedString::from(theme.font_family.as_str())));
 }

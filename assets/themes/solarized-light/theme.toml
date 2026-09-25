@@ -1,0 +1,42 @@
+# Solarized Light: Ethan Schoonover's precision colours, light variant.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Solarized Light"
+# "acrylic", "mica" or "none".
+backdrop = "none"
+font = ""
+
+[colors]
+panel-background = "#fdf6e3"
+panel-border = "#eee8d5"
+foreground = "#586e75"
+foreground-dim = "#93a1a1"
+accent = "#268bd2"
+hover = "#eee8d5"
+pressed = "#e4dcc6"
+highlight = "#268bd226"
+attention = "#cb4b16"
+popup-background = "#fdf6e3"
+error = "#dc322f"
+accent-foreground = "#fdf6e3"
+indicator = "#859900"
+popup-border = "#e4dcc6"
+shadow = "#586e7533"
+glow = "#268bd244"
+
+[metrics]
+radius = 4
+panel-radius = 6
+popup-radius = 8
+shadow-blur = 12
+indicator-size = 2
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "line"
+hover-effect = "underline"
+open-animation = "fade"

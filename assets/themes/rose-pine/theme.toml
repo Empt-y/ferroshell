@@ -1,0 +1,43 @@
+# Rosé Pine: All natural pine, faux fur and a bit of soho vibes (rosepinetheme.com).
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Rosé Pine"
+# "acrylic", "mica" or "none".
+backdrop = "acrylic"
+font = ""
+
+[colors]
+panel-background = "#191724d9"
+panel-border = "#26233a"
+foreground = "#e0def4"
+foreground-dim = "#908caa"
+accent = "#ebbcba"
+hover = "#26233ab0"
+pressed = "#403d52b0"
+highlight = "#ebbcba2e"
+attention = "#f6c177"
+popup-background = "#1f1d2ef5"
+error = "#eb6f92"
+accent-foreground = "#191724"
+indicator = "#c4a7e7"
+popup-border = "#403d52"
+shadow = "#00000099"
+glow = "#c4a7e766"
+
+[metrics]
+radius = 8
+panel-radius = 12
+popup-radius = 14
+floating-margin = 8
+shadow-blur = 24
+indicator-size = 3
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "pill"
+hover-effect = "glow"
+open-animation = "fade"

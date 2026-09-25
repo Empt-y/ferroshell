@@ -21,6 +21,11 @@ pub const COLOR_TOKENS: &[(&str, &str, &str)] = &[
     ("attention", "#f67400", "Tasks asking for attention"),
     ("popup-background", "#202326f5", "Tooltips, menus and thumbnail popups"),
     ("error", "#da4453", "Error badges and broken widgets"),
+    ("accent-foreground", "#ffffff", "Text and icons drawn on the accent colour"),
+    ("indicator", "#3daee9", "Running/active task indicator (follows Windows with `accent = \"system\"`)"),
+    ("popup-border", "#ffffff1a", "Border around popups, the launcher and banners"),
+    ("shadow", "#00000066", "Drop shadows under popups and lifted items"),
+    ("glow", "#3daee980", "Glow of the `glow` hover effect and indicator style"),
 ];
 
 /// Every metric token (logical pixels), with its default.
@@ -32,6 +37,19 @@ pub const METRIC_TOKENS: &[(&str, f32, &str)] = &[
     ("padding", 3.0, "Space inside the panel edge"),
     ("font-size", 13.0, "Base font size"),
     ("icon-size", 24.0, "Task and launcher icon size"),
+    ("popup-radius", 10.0, "Corner radius of popups, the launcher, banners and the OSD"),
+    ("border-width", 1.0, "Width of popup and banner borders"),
+    ("shadow-blur", 16.0, "Softness of drop shadows (0 = none)"),
+    ("indicator-size", 2.0, "Thickness of the task indicator"),
+    ("animation-speed", 1.0, "Multiplier for every animation's length: 0 turns animations off, 2 is half speed"),
+];
+
+/// Every style token (a choice between named looks), with its choices; the first is the
+/// default.
+pub const STYLE_TOKENS: &[(&str, &[&str], &str)] = &[
+    ("indicator-style", &["line", "dot", "pill", "glow", "none"], "How running and active tasks are marked"),
+    ("hover-effect", &["fill", "lift", "glow", "underline"], "What hovering a panel button does"),
+    ("open-animation", &["slide", "fade", "zoom", "none"], "How popups, the launcher, banners and the OSD appear"),
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Deserialize)]
@@ -55,6 +73,7 @@ pub struct Theme {
     pub font_family: String,
     pub colors: BTreeMap<String, Rgba>,
     pub metrics: BTreeMap<String, f32>,
+    pub styles: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -67,6 +86,8 @@ struct ThemeFile {
     colors: BTreeMap<String, String>,
     #[serde(default)]
     metrics: BTreeMap<String, f32>,
+    #[serde(default)]
+    style: BTreeMap<String, String>,
 }
 
 impl Default for Theme {
@@ -81,6 +102,7 @@ impl Default for Theme {
                 .filter_map(|(k, v, _)| Some(((*k).to_owned(), v.parse().ok()?)))
                 .collect(),
             metrics: METRIC_TOKENS.iter().map(|(k, v, _)| ((*k).to_owned(), *v)).collect(),
+            styles: STYLE_TOKENS.iter().map(|(k, choices, _)| ((*k).to_owned(), choices[0].to_owned())).collect(),
         }
     }
 }
@@ -126,7 +148,22 @@ impl Theme {
                 theme.metrics.insert(key, value);
             }
         }
+        for (key, value) in file.style {
+            match STYLE_TOKENS.iter().find(|(k, ..)| *k == key) {
+                None => warnings.push(format!("unknown style token `{key}`")),
+                Some((_, choices, _)) if !choices.contains(&value.as_str()) => {
+                    warnings.push(format!("style.{key} = \"{value}\": choose one of {}", choices.join(", ")))
+                }
+                Some(_) => {
+                    theme.styles.insert(key, value);
+                }
+            }
+        }
         Ok((theme, warnings))
+    }
+
+    pub fn style(&self, token: &str) -> &str {
+        self.styles.get(token).map_or("", String::as_str)
     }
 
     pub fn color(&self, token: &str) -> Rgba {
@@ -147,6 +184,39 @@ mod tests {
         let t = Theme::default();
         assert_eq!(t.colors.len(), COLOR_TOKENS.len());
         assert_eq!(t.metrics.len(), METRIC_TOKENS.len());
+        assert_eq!(t.styles.len(), STYLE_TOKENS.len());
+        assert_eq!(t.style("indicator-style"), "line");
+    }
+
+    #[test]
+    fn styles_are_checked_against_their_choices() {
+        let (t, warnings) = Theme::parse(
+            r##"
+            [style]
+            indicator-style = "dot"
+            hover-effect = "wobble"
+            sparkle = "yes"
+            "##,
+        )
+        .unwrap();
+        assert_eq!(t.style("indicator-style"), "dot");
+        assert_eq!(t.style("hover-effect"), "fill", "an invalid choice keeps the default");
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
+    }
+
+    #[test]
+    fn every_builtin_theme_parses_cleanly() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../assets/themes");
+        let mut n = 0;
+        for entry in std::fs::read_dir(&dir).unwrap().flatten() {
+            let path = entry.path().join("theme.toml");
+            let text = std::fs::read_to_string(&path).unwrap();
+            let (theme, warnings) = Theme::parse(&text).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            assert!(warnings.is_empty(), "{}: {warnings:?}", path.display());
+            assert!(!theme.name.is_empty());
+            n += 1;
+        }
+        assert!(n >= 10, "only {n} built-in themes");
     }
 
     #[test]

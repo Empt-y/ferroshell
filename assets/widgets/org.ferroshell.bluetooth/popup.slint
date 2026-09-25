@@ -9,6 +9,7 @@ component TextButton inherits Rectangle {
     width: label.preferred-width + 20px;
     border-radius: Theme.radius;
     background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : Theme.highlight;
+    animate background { duration: Theme.fast; }
     label := Text {
         text: root.text;
         color: Theme.foreground;
@@ -25,6 +26,7 @@ component DeviceRow inherits Rectangle {
     height: 44px;
     border-radius: Theme.radius;
     background: root.dev.connected ? Theme.highlight : transparent;
+    animate background { duration: Theme.fast; }
     HorizontalLayout {
         padding-left: 10px;
         padding-right: 8px;

@@ -1,9 +1,30 @@
 # Themes
 
 A theme is a folder with a `theme.toml`, in `%APPDATA%\ferroshell\themes\<name>\`
-(yours) or `%LOCALAPPDATA%\ferroshell\builtin\themes\<name>\` (built-in: `breeze-dark`,
-`breeze-light`). Select it with `theme = "<name>"` in `config.toml`, or in
-`fsh-settings` (which can preview before applying). Edits apply as soon as you save.
+(yours) or `%LOCALAPPDATA%\ferroshell\builtin\themes\<name>\` (built-in). Select it with
+`theme = "<name>"` in `config.toml`, or in `fsh-settings` (which can preview before
+applying). Edits apply as soon as you save. `fsh-ctl shell preview_theme '{"name":"nord"}'`
+tries one without saving (`'{}'` goes back).
+
+## Built-in themes
+
+| Theme | Character |
+|---|---|
+| `breeze-dark`, `breeze-light` | KDE Plasma's defaults: line indicators, slide-in popups |
+| `fluent-dark`, `fluent-light` | Windows 11: mica, your accent colour, pill indicators |
+| `nord` | arctic blues, dot indicators |
+| `dracula` | purple and pink, everything glows, popups zoom in |
+| `catppuccin-mocha`, `catppuccin-latte` | soft pastels, big rounded corners, icons lift on hover |
+| `gruvbox` | warm and retro, square corners, underline hover, no transparency |
+| `tokyo-night` | neon-lit night blues, dots, lifting icons |
+| `rose-pine` | muted rose and pine, pills and a soft glow |
+| `solarized-light` | Solarized's light palette, calm fades |
+| `synthwave` | neon pink and cyan on midnight purple, lots of glow |
+| `frosted-glass` | barely-there tinted glass, huge corners, zoom-in popups |
+| `high-contrast` | black, white and yellow, thick borders, gentle motion |
+| `classic` | grey, square and instant, like it's 1998 |
+
+Copy any of them into your own themes folder and change what you like.
 
 A theme only needs the values it changes; everything else keeps the default.
 
@@ -16,9 +37,15 @@ font = ""              # font family; empty = system UI font
 panel-background = "#10131acc"   # alpha lets the backdrop show through
 accent = "system"                # follow the Windows accent colour
 
-[metrics]              # logical pixels
+[metrics]              # logical pixels (animation-speed is a multiplier)
 radius = 6
 icon-size = 26
+animation-speed = 1.5            # slower, dreamier motion; 0 turns it off
+
+[style]
+indicator-style = "pill"         # how running/active tasks are marked
+hover-effect = "lift"            # what hovering a panel button does
+open-animation = "zoom"          # how popups, the launcher, banners and the OSD appear
 ```
 
 Unknown tokens and bad values are logged as warnings and ignored. A theme that doesn't
@@ -38,6 +65,11 @@ parse at all falls back to the defaults.
 | `attention` | `#f67400` | apps asking for attention, warnings |
 | `popup-background` | `#202326f5` | previews and popups |
 | `error` | `#da4453` | broken widgets |
+| `accent-foreground` | `#ffffff` | text and icons on the accent colour |
+| `indicator` | `#3daee9` | running/active task indicator (follows Windows with `accent = "system"`) |
+| `popup-border` | `#ffffff1a` | border of popups, the launcher, banners and the OSD |
+| `shadow` | `#00000066` | drop shadows (slider knobs, toggles) |
+| `glow` | `#3daee980` | the `glow` hover effect and indicator style |
 
 | Metric | Default |
 |---|---|
@@ -48,6 +80,29 @@ parse at all falls back to the defaults.
 | `padding` | 3 |
 | `font-size` | 13 |
 | `icon-size` | 24 |
+| `popup-radius` | 10 |
+| `border-width` | 1 |
+| `shadow-blur` | 16 |
+| `indicator-size` | 2 |
+| `animation-speed` | 1 (a multiplier: 0 = no animation, 2 = half speed) |
+
+| Style | Choices (first is the default) |
+|---|---|
+| `indicator-style` | `line`, `dot`, `pill`, `glow`, `none` |
+| `hover-effect` | `fill`, `lift` (icons grow), `glow`, `underline` |
+| `open-animation` | `slide`, `fade`, `zoom`, `none` |
+
+### Motion
+
+Everything that moves follows `animation-speed`: hovering and pressing buttons, task
+indicators growing, the pulsing "wants attention" bar, tasks and desktop icons fading
+in, toggles, sliders, list highlights, and popups, the launcher, banners and the OSD
+opening. When Windows' **Animation effects** is off (Settings > Accessibility > Visual
+effects), Ferroshell turns animation off too, whatever the theme says.
+
+In your own widgets, use `Theme.fast`, `Theme.normal` and `Theme.slow` for durations
+(they already include `animation-speed`), and wrap a window's content in `Reveal`
+(from `@ferroshell/controls.slint`) to give it the theme's open animation.
 
 Widgets read these through the `Theme` global: `Theme.accent`, `Theme.radius`, and so on.
 

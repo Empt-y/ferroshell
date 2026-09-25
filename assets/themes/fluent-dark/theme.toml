@@ -1,0 +1,43 @@
+# Fluent Dark: Windows 11's own look: mica, your accent colour, soft pills.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Fluent Dark"
+# "acrylic", "mica" or "none".
+backdrop = "mica"
+font = "Segoe UI Variable Text"
+
+[colors]
+panel-background = "#1c1c1ccc"
+panel-border = "#ffffff10"
+foreground = "#ffffff"
+foreground-dim = "#c5c5c5"
+accent = "system"
+hover = "#ffffff0f"
+pressed = "#ffffff0a"
+highlight = "#ffffff15"
+attention = "#ffb900"
+popup-background = "#2c2c2cf2"
+error = "#ff99a4"
+accent-foreground = "#000000"
+indicator = "#60cdff"
+popup-border = "#ffffff18"
+shadow = "#00000080"
+glow = "#60cdff66"
+
+[metrics]
+radius = 5
+panel-radius = 8
+popup-radius = 8
+icon-size = 24
+shadow-blur = 24
+indicator-size = 3
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "pill"
+hover-effect = "fill"
+open-animation = "slide"

@@ -1,0 +1,45 @@
+# High Contrast: Maximum legibility: black, white and yellow, thick borders, calm motion.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "High Contrast"
+# "acrylic", "mica" or "none".
+backdrop = "none"
+font = ""
+
+[colors]
+panel-background = "#000000"
+panel-border = "#ffffff"
+foreground = "#ffffff"
+foreground-dim = "#ffffff"
+accent = "#ffff00"
+hover = "#1aebff55"
+pressed = "#1aebff88"
+highlight = "#ffff0055"
+attention = "#ffff00"
+popup-background = "#000000"
+error = "#ff4040"
+accent-foreground = "#000000"
+indicator = "#ffff00"
+popup-border = "#ffffff"
+shadow = "#00000000"
+glow = "#ffff0000"
+
+[metrics]
+radius = 0
+panel-radius = 0
+popup-radius = 0
+border-width = 2
+shadow-blur = 0
+indicator-size = 4
+font-size = 14
+animation-speed = 0.5
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "line"
+hover-effect = "underline"
+open-animation = "fade"

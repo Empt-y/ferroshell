@@ -1,0 +1,42 @@
+# Tokyo Night: Neon-lit night-time blues (enkia/tokyo-night).
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Tokyo Night"
+# "acrylic", "mica" or "none".
+backdrop = "acrylic"
+font = ""
+
+[colors]
+panel-background = "#1a1b26d9"
+panel-border = "#292e42"
+foreground = "#c0caf5"
+foreground-dim = "#737aa2"
+accent = "#7aa2f7"
+hover = "#292e42b0"
+pressed = "#3b4261b0"
+highlight = "#7aa2f733"
+attention = "#ff9e64"
+popup-background = "#1a1b26f5"
+error = "#f7768e"
+accent-foreground = "#1a1b26"
+indicator = "#7dcfff"
+popup-border = "#3b4261"
+shadow = "#00000099"
+glow = "#7dcfff66"
+
+[metrics]
+radius = 6
+panel-radius = 10
+popup-radius = 12
+shadow-blur = 22
+indicator-size = 2
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "dot"
+hover-effect = "lift"
+open-animation = "slide"

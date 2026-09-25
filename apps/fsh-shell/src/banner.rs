@@ -91,9 +91,13 @@ impl App {
             theme_binding::apply(i, &st.theme, st.accent);
             i.window().set_position(slint::PhysicalPosition::new(rect.left, rect.top));
             i.window().set_size(slint::PhysicalSize::new(rect.width() as u32, rect.height() as u32));
+            let already = i.window().is_visible();
             if let Err(e) = i.show() {
                 tracing::error!("banner: {e}");
                 return;
+            }
+            if !already {
+                crate::app::play_open(i, "right");
             }
         }
         crate::app::keep_foreground(foreground);

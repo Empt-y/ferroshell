@@ -50,6 +50,7 @@ export component PreviewPopup inherits Window {
         height: e.h + root.title-height;
         border-radius: 6px;
         background: item-touch.pressed ? Theme.pressed : item-touch.has-hover ? Theme.hover : e.active ? Theme.highlight : transparent;
+        animate background { duration: Theme.fast; }
 
         item-touch := TouchArea {
             clicked => { root.activate(i); }
@@ -79,6 +80,7 @@ export component PreviewPopup inherits Window {
                 opacity: item-touch.has-hover || close-touch.has-hover ? 1 : 0;
                 border-radius: 4px;
                 background: close-touch.has-hover ? Theme.error.with-alpha(0.8) : transparent;
+                animate background { duration: Theme.fast; }
                 GlyphIcon {
                     x: (parent.width - self.width) / 2;
                     y: (parent.height - self.height) / 2;

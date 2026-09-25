@@ -129,9 +129,14 @@ impl App {
             theme_binding::apply(i, &st.theme, st.accent);
             i.window().set_position(slint::PhysicalPosition::new(rect.left, rect.top));
             i.window().set_size(slint::PhysicalSize::new(rect.width() as u32, rect.height() as u32));
+            let already = i.window().is_visible();
             if let Err(e) = i.show() {
                 tracing::error!("osd: {e}");
                 return;
+            }
+            // Only when it appears, not on every volume step.
+            if !already {
+                crate::app::play_open(i, "below");
             }
         }
         if self.osd.hwnd.get().is_none() {

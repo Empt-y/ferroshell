@@ -306,6 +306,8 @@ impl App {
                 tracing::error!("launcher: {e}");
                 return;
             }
+            let side = st.panels.first().map_or("below", |p| crate::app::open_side(p.config.edge));
+            crate::app::play_open(i, side);
         }
         self.launcher.visible.set(true);
         self.launcher_refresh(true);

@@ -1,0 +1,45 @@
+# Classic: Grey, square and instant, like it's 1998.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Classic"
+# "acrylic", "mica" or "none".
+backdrop = "none"
+font = "Tahoma"
+
+[colors]
+panel-background = "#c0c0c0"
+panel-border = "#ffffff"
+foreground = "#000000"
+foreground-dim = "#404040"
+accent = "#000080"
+hover = "#d4d0c8"
+pressed = "#a0a0a0"
+highlight = "#00008040"
+attention = "#800000"
+popup-background = "#c0c0c0"
+error = "#ff0000"
+accent-foreground = "#ffffff"
+indicator = "#000080"
+popup-border = "#808080"
+shadow = "#00000000"
+glow = "#00000000"
+
+[metrics]
+radius = 0
+panel-radius = 0
+popup-radius = 0
+border-width = 2
+shadow-blur = 0
+indicator-size = 2
+font-size = 12
+animation-speed = 0
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "line"
+hover-effect = "fill"
+open-animation = "none"

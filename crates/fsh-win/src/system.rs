@@ -70,3 +70,18 @@ pub fn cursor_pos() -> (i32, i32) {
     }
     (p.x, p.y)
 }
+
+/// `WM_SETTINGCHANGE`'s `wParam` when "Animation effects" is switched.
+pub const SPI_SETCLIENTAREAANIMATION: usize = 0x1043;
+
+/// Windows' "Animation effects" (Settings > Accessibility > Visual effects).
+pub fn animations_enabled() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{
+        SPI_GETCLIENTAREAANIMATION, SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS, SystemParametersInfoW,
+    };
+    let mut on = windows::core::BOOL(1);
+    let ok = unsafe {
+        SystemParametersInfoW(SPI_GETCLIENTAREAANIMATION, 0, Some(&mut on as *mut _ as *mut _), SYSTEM_PARAMETERS_INFO_UPDATE_FLAGS(0))
+    };
+    ok.is_err() || on.as_bool()
+}

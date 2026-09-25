@@ -100,6 +100,12 @@ component IconView inherits Rectangle {
     y: item.y;
     width: Desktop.cell-width;
     height: Desktop.cell-height;
+    // Icons fade in when they appear, and glide when rearranged.
+    property <bool> appeared;
+    init => { root.appeared = true; }
+    opacity: root.appeared ? 1 : 0;
+    animate opacity { duration: Theme.slow; easing: ease-out; }
+    animate x, y { duration: Theme.normal; easing: ease-out; }
 
     highlight := Rectangle {
         x: 4px;
@@ -108,6 +114,7 @@ component IconView inherits Rectangle {
         height: min(parent.height - 4px, 10px + Desktop.icon-size + label.height);
         border-radius: 3px;
         background: item.selected ? Theme.highlight : (area.has-hover ? #ffffff1a : transparent);
+        animate background { duration: Theme.fast; }
         border-width: item.selected ? 1px : 0px;
         border-color: Theme.accent.with-alpha(0.6);
     }
@@ -118,6 +125,8 @@ component IconView inherits Rectangle {
         height: Desktop.icon-size;
         source: item.icon;
         image-fit: contain;
+        transform-scale: area.pressed ? 0.94 : area.has-hover ? 1.06 : 1.0;
+        animate transform-scale { duration: Theme.normal; easing: cubic-bezier(0.34, 1.56, 0.64, 1); }
     }
     label := Label {
         x: 6px;

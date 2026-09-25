@@ -9,6 +9,7 @@ component TextButton inherits Rectangle {
     width: label.preferred-width + 20px;
     border-radius: Theme.radius;
     background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : Theme.highlight;
+    animate background { duration: Theme.fast; }
     label := Text {
         text: root.text;
         color: Theme.foreground;
@@ -25,6 +26,7 @@ component CloseButton inherits Rectangle {
     height: 20px;
     border-radius: 10px;
     background: touch.has-hover ? Theme.hover : transparent;
+    animate background { duration: Theme.fast; }
     GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: 9px; height: 9px; kind: "close"; }
     touch := TouchArea { clicked => { root.clicked(); } }
 }
@@ -70,6 +72,7 @@ component Item inherits VerticalLayout {
     Rectangle {
         border-radius: 6px;
         background: touch.has-hover ? Theme.hover : Theme.highlight.with-alpha(0.35);
+        animate background { duration: Theme.fast; }
         height: content.preferred-height;
         touch := TouchArea { clicked => { Notifications.open(root.n.id); } }
         content := HorizontalLayout {
@@ -84,6 +87,7 @@ component Item inherits VerticalLayout {
                     height: 6px;
                     border-radius: 3px;
                     background: root.n.unread ? Theme.accent : transparent;
+                    animate background { duration: Theme.fast; }
                 }
             }
             VerticalLayout {

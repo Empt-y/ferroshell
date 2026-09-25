@@ -1,0 +1,44 @@
+# Synthwave: Neon pink and cyan on midnight purple: everything glows.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Synthwave"
+# "acrylic", "mica" or "none".
+backdrop = "acrylic"
+font = ""
+
+[colors]
+panel-background = "#1a0b2ee0"
+panel-border = "#ff2a6d55"
+foreground = "#f5e6ff"
+foreground-dim = "#b89bd6"
+accent = "#ff2a6d"
+hover = "#ff2a6d26"
+pressed = "#ff2a6d40"
+highlight = "#05d9e833"
+attention = "#fdfd96"
+popup-background = "#1a0b2ef5"
+error = "#ff5470"
+accent-foreground = "#1a0b2e"
+indicator = "#05d9e8"
+popup-border = "#ff2a6d80"
+shadow = "#ff2a6d40"
+glow = "#05d9e8aa"
+
+[metrics]
+radius = 6
+panel-radius = 10
+popup-radius = 12
+border-width = 1
+shadow-blur = 28
+indicator-size = 3
+animation-speed = 1.2
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "glow"
+hover-effect = "glow"
+open-animation = "zoom"

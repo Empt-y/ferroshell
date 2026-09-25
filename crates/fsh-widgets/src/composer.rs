@@ -194,15 +194,19 @@ impl Composer {
         }
         let mut s = String::new();
         s.push_str("import { Shell, Theme } from \"@ferroshell/api.slint\";\n");
+        s.push_str("import { Reveal } from \"@ferroshell/controls.slint\";\n");
         let _ = writeln!(s, "import {{ {SERVICE_GLOBALS} }} from \"@ferroshell/services.slint\";");
         let _ = writeln!(s, "import {{ Popup as P }} from {};", slint_string(&slint_path(&path)));
         let _ = writeln!(s, "export {{ Shell, Theme, {SERVICE_GLOBALS} }}\n");
         let _ = writeln!(s, "export component {POPUP_COMPONENT} inherits Window {{");
+        // `opened`/`open-from`: the shell plays the theme's open animation (see `Reveal`).
         s.push_str(
             "    title: \"Ferroshell Popup\";\n    no-frame: true;\n    always-on-top: true;\n    background: transparent;\n    \
              default-font-size: Theme.font-size;\n    default-font-family: Theme.font-family;\n    \
+             in property <bool> opened: true;\n    in property <string> open-from: \"below\";\n    \
              public function take-focus() { scope.focus(); }\n    \
-             Rectangle { background: Theme.popup-background; border-radius: 10px; border-width: 1px; border-color: Theme.panel-border; }\n    \
+             Reveal { open: root.opened; from: root.open-from;\n    \
+             Rectangle { background: Theme.popup-background; border-radius: Theme.popup-radius; border-width: Theme.border-width; border-color: Theme.popup-border; }\n    \
              scope := FocusScope {\n        \
              key-pressed(e) => { if e.text == Key.Escape { Shell.invoke(\"close-popup\", \"\"); return accept; } reject }\n        \
              P { width: 100%; height: 100%;",
@@ -210,7 +214,7 @@ impl Composer {
         for (k, v) in &props {
             let _ = write!(s, " {k}: {v};");
         }
-        s.push_str(" }\n    }\n}\n");
+        s.push_str(" }\n    }\n    }\n}\n");
         let generated = self.generated_dir().join(format!("popup-{}.slint", entry.id));
         let _ = std::fs::create_dir_all(self.generated_dir());
         let _ = std::fs::write(&generated, &s);

@@ -1,0 +1,43 @@
+# Frosted Glass: Barely-there panels over a blurred wallpaper, big rounded corners.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Frosted Glass"
+# "acrylic", "mica" or "none".
+backdrop = "acrylic"
+font = ""
+
+[colors]
+panel-background = "#0c0c1459"
+panel-border = "#ffffff30"
+foreground = "#ffffff"
+foreground-dim = "#e2e2e2"
+accent = "system"
+hover = "#ffffff22"
+pressed = "#ffffff33"
+highlight = "#ffffff2a"
+attention = "#ffcc66"
+popup-background = "#141420a6"
+error = "#ff8080"
+accent-foreground = "#000000"
+indicator = "#ffffff"
+popup-border = "#ffffff40"
+shadow = "#00000055"
+glow = "#ffffff88"
+
+[metrics]
+radius = 10
+panel-radius = 16
+popup-radius = 18
+floating-margin = 10
+shadow-blur = 30
+indicator-size = 3
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "dot"
+hover-effect = "lift"
+open-animation = "zoom"

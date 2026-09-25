@@ -8,6 +8,7 @@ component NavButton inherits Rectangle {
     height: 30px;
     border-radius: Theme.radius;
     background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : transparent;
+    animate background { duration: Theme.fast; }
     Text {
         text: root.text;
         color: Theme.foreground;
@@ -85,6 +86,7 @@ export component Popup inherits Rectangle {
                 height: root.cell;
                 border-radius: self.width / 2;
                 background: d.today ? Theme.accent : day-touch.has-hover ? Theme.hover : transparent;
+                animate background { duration: Theme.fast; }
                 day-touch := TouchArea {}
                 Text {
                     text: d.day;

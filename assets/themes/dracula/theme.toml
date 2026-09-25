@@ -1,0 +1,42 @@
+# Dracula: The dark theme with purple, pink and green (draculatheme.com).
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
+name = "Dracula"
+# "acrylic", "mica" or "none".
+backdrop = "acrylic"
+font = ""
+
+[colors]
+panel-background = "#282a36e0"
+panel-border = "#44475a"
+foreground = "#f8f8f2"
+foreground-dim = "#bfbfd4"
+accent = "#bd93f9"
+hover = "#44475aa0"
+pressed = "#6272a4a0"
+highlight = "#bd93f940"
+attention = "#ffb86c"
+popup-background = "#282a36f5"
+error = "#ff5555"
+accent-foreground = "#282a36"
+indicator = "#ff79c6"
+popup-border = "#6272a4"
+shadow = "#00000099"
+glow = "#ff79c680"
+
+[metrics]
+radius = 6
+panel-radius = 10
+popup-radius = 12
+shadow-blur = 22
+indicator-size = 2
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "glow"
+hover-effect = "glow"
+open-animation = "zoom"

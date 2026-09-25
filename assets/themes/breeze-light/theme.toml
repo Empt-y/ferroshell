@@ -1,15 +1,41 @@
+# Breeze Light: KDE Plasma's light look.
+# Copy this folder to %APPDATA%\ferroshell\themes\<name>\ to change it, and set
+# `theme = "<name>"` in config.toml (or pick it in Ferroshell settings). Any token left out
+# keeps its default; see docs/theming.md for what each one does.
+
 name = "Breeze Light"
+# "acrylic", "mica" or "none".
 backdrop = "acrylic"
+font = ""
 
 [colors]
 panel-background = "#eff0f1d9"
 panel-border = "#00000014"
 foreground = "#232629"
-foreground-dim = "#6e7175"
+foreground-dim = "#707d8a"
 accent = "#3daee9"
 hover = "#0000000f"
 pressed = "#0000001f"
-highlight = "#3daee938"
+highlight = "#3daee940"
 attention = "#f67400"
 popup-background = "#eff0f1f5"
 error = "#da4453"
+accent-foreground = "#ffffff"
+indicator = "#3daee9"
+popup-border = "#00000014"
+shadow = "#00000033"
+glow = "#3daee966"
+
+[metrics]
+radius = 4
+panel-radius = 8
+popup-radius = 10
+shadow-blur = 14
+
+[style]
+# indicator-style: line, dot, pill, glow, none
+# hover-effect: fill, lift, glow, underline
+# open-animation: slide, fade, zoom, none
+indicator-style = "line"
+hover-effect = "fill"
+open-animation = "slide"

@@ -43,6 +43,34 @@ pub(crate) fn keep_foreground(previous: Option<fsh_win::Hwnd>) {
     }
 }
 
+/// Plays the theme's open animation on a window just shown (`Reveal` in controls.slint):
+/// `from` is the side it comes from ("below", "above", "left", "right"). Windows from
+/// overrides without `opened` simply appear.
+pub(crate) fn play_open(instance: &slint_interpreter::ComponentInstance, from: &str) {
+    use slint::ComponentHandle as _;
+    use slint_interpreter::Value;
+    let _ = instance.set_property("open-from", Value::String(from.into()));
+    if instance.set_property("opened", Value::Bool(false)).is_err() {
+        return;
+    }
+    let weak = instance.as_weak();
+    slint::Timer::single_shot(Duration::from_millis(16), move || {
+        if let Some(i) = weak.upgrade() {
+            let _ = i.set_property("opened", Value::Bool(true));
+        }
+    });
+}
+
+/// The side popups come from for a panel on `edge` (they open away from it).
+pub(crate) fn open_side(edge: fsh_config::Edge) -> &'static str {
+    match edge {
+        fsh_config::Edge::Top => "above",
+        fsh_config::Edge::Left => "left",
+        fsh_config::Edge::Right => "right",
+        fsh_config::Edge::Bottom => "below",
+    }
+}
+
 pub fn with<R>(f: impl FnOnce(&App) -> R) -> Option<R> {
     let app = APP.with(|a| a.borrow().clone());
     app.map(|a| f(&a))
@@ -280,7 +308,16 @@ impl App {
     }
 
     /// Returns (resolved name, theme, warnings). Never fails: problems fall back to defaults.
+    /// [`Self::load_theme`], with animations off when Windows' "Animation effects" is.
     fn resolve_theme(&self, requested: &str) -> (String, Theme, Vec<String>) {
+        let (name, mut theme, warnings) = self.load_theme(requested);
+        if !fsh_win::system::animations_enabled() {
+            theme.metrics.insert("animation-speed".into(), 0.0);
+        }
+        (name, theme, warnings)
+    }
+
+    fn load_theme(&self, requested: &str) -> (String, Theme, Vec<String>) {
         let name = match requested {
             "auto" if fsh_win::system::prefers_dark() => "breeze-dark",
             "auto" => "breeze-light",
@@ -302,6 +339,9 @@ impl App {
 
     pub fn rebuild_panels(&self) {
         let started = Instant::now();
+        // New panel windows mustn't keep the foreground (a theme or config change while the
+        // user is in a game or typing elsewhere).
+        keep_foreground(fsh_win::winfo::foreground());
         self.clear_popups();
         let monitors = monitor::monitors();
         {
@@ -843,6 +883,12 @@ fn on_system_message(_hwnd: fsh_win::Hwnd, msg: u32, _wparam: usize, lparam: isi
                     a.sync_lock_screen();
                     a.apply_desktop_wallpaper();
                 });
+            });
+        }
+        // Settings > Accessibility > Visual effects > Animation effects.
+        window::WM_SETTINGCHANGE if _wparam == fsh_win::system::SPI_SETCLIENTAREAANIMATION => {
+            slint::Timer::single_shot(Duration::from_millis(200), || {
+                with(|a| a.refresh_theme());
             });
         }
         window::WM_SETTINGCHANGE => match window::setting_change_area(lparam).as_deref() {
