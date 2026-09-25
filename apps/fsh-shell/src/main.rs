@@ -11,6 +11,7 @@ mod banner;
 mod control;
 mod desktop;
 mod launcher;
+mod lockscreen;
 mod notify;
 mod osd;
 mod panel;
@@ -89,6 +90,14 @@ fn main() -> ExitCode {
             std::thread::sleep(std::time::Duration::from_millis(500));
         }
         println!("sent {count}");
+        return ExitCode::SUCCESS;
+    }
+    // `fsh-shell --sync-lock-screen`: set Windows' lock screen picture to the current
+    // wallpaper once (what `[lock-screen] sync-image` keeps doing), print the result, exit.
+    if std::env::args().nth(1).as_deref() == Some("--sync-lock-screen") {
+        let _com = fsh_win::com::ComGuard::mta();
+        let result = lockscreen::sync_now();
+        println!("{}", serde_json::json!({ "ok": result.is_ok(), "result": result.unwrap_or_else(|e| e) }));
         return ExitCode::SUCCESS;
     }
     let _log = fsh_common::init_logging("shell").ok();

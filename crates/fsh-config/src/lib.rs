@@ -7,6 +7,6 @@ pub mod edit;
 pub mod theme;
 
 pub use color::Rgba;
-pub use config::{Config, Edge, LauncherConfig, LoadOutcome, MonitorSel, PanelConfig, SessionConfig, WidgetEntry};
+pub use config::{Config, Edge, LauncherConfig, LoadOutcome, LockScreenConfig, MonitorSel, PanelConfig, SessionConfig, WidgetEntry};
 pub use edit::ConfigEditor;
 pub use theme::{Backdrop, Theme};

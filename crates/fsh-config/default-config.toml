@@ -59,3 +59,8 @@ startup-tasks = true
 startup-delay = 2
 # Names to skip: a Run entry, a Startup-folder file, or a package family name.
 startup-exclude = []
+
+# Windows' lock screen stays Windows' own; this only sets its picture.
+[lock-screen]
+# Use the desktop wallpaper as the lock screen picture (and follow it when it changes).
+sync-image = false

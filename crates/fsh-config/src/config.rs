@@ -21,6 +21,17 @@ pub struct Config {
     pub launcher: LauncherConfig,
     #[serde(default)]
     pub session: SessionConfig,
+    #[serde(default)]
+    pub lock_screen: LockScreenConfig,
+}
+
+/// Windows' lock screen (Ferroshell doesn't replace it; it can keep its picture in step).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case", default)]
+pub struct LockScreenConfig {
+    /// Use the desktop wallpaper as the lock screen picture, and keep it in step when the
+    /// wallpaper changes.
+    pub sync_image: bool,
 }
 
 /// Sign-in behaviour when Ferroshell is the login shell (`fsh-session --replace`).
@@ -197,6 +208,7 @@ impl Config {
             panels: vec![],
             launcher: LauncherConfig::default(),
             session: SessionConfig::default(),
+            lock_screen: LockScreenConfig::default(),
         })
     }
 

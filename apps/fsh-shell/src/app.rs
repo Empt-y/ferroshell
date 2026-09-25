@@ -106,6 +106,7 @@ pub struct App {
     pub(crate) banner: crate::banner::Banner,
     pub(crate) desktop: crate::desktop::Desktop,
     pub(crate) shell_keys: crate::shellkeys::ShellKeys,
+    pub(crate) lock_screen: crate::lockscreen::LockScreenSync,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
@@ -167,6 +168,7 @@ impl App {
             banner: crate::banner::Banner::default(),
             desktop: crate::desktop::Desktop::default(),
             shell_keys: crate::shellkeys::ShellKeys::default(),
+            lock_screen: crate::lockscreen::LockScreenSync::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -244,6 +246,8 @@ impl App {
             (u32::from(bg.r) + u32::from(bg.g) + u32::from(bg.b)) < 3 * 128
         };
         fsh_win::menu::set_dark_menus(dark);
+        drop(st);
+        self.sync_lock_screen();
     }
 
     /// Returns (resolved name, theme, warnings). Never fails: problems fall back to defaults.
@@ -685,6 +689,7 @@ impl App {
             "replace": self.replace,
             "desktop": self.desktop_state(),
             "shortcuts": self.shell_keys_state(),
+            "lock_screen": self.lock_screen_state(),
             "identity": fsh_win::identity::package_full_name(),
             "config_error": st.config.error(),
             "config_from_last_good": matches!(st.config, LoadOutcome::Fallback { from_last_good: true, .. }),
@@ -765,6 +770,12 @@ fn on_system_message(_hwnd: fsh_win::Hwnd, msg: u32, _wparam: usize, lparam: isi
             // Let Windows settle (several messages arrive while monitors reconfigure).
             slint::Timer::single_shot(Duration::from_millis(500), || {
                 with(|a| a.relayout());
+            });
+        }
+        window::WM_SETTINGCHANGE if _wparam == fsh_win::lockscreen::SPI_SETDESKWALLPAPER => {
+            // The wallpaper file may still be being written: give it a moment.
+            slint::Timer::single_shot(Duration::from_millis(1500), || {
+                with(|a| a.sync_lock_screen());
             });
         }
         window::WM_SETTINGCHANGE => match window::setting_change_area(lparam).as_deref() {

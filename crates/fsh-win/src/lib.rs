@@ -16,6 +16,7 @@ pub mod hotkey;
 pub mod icon;
 pub mod identity;
 pub mod job;
+pub mod lockscreen;
 pub mod keyhook;
 pub mod media;
 pub mod menu;
