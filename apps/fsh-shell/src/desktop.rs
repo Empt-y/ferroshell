@@ -21,6 +21,8 @@ const MENU_DISPLAY: u32 = 2;
 const MENU_DESKTOP_FOLDER: u32 = 3;
 const MENU_FERROSHELL: u32 = 4;
 const MENU_TASK_MANAGER: u32 = 5;
+const MENU_NEXT_BACKGROUND: u32 = 6;
+const MENU_ABOUT_PICTURE: u32 = 7;
 
 impl App {
     /// Creates the desktop window, unless another shell's desktop is already there.
@@ -58,7 +60,18 @@ impl App {
 
     fn desktop_menu(&self, x: i32, y: i32) {
         let Some(owner) = self.desktop.window.borrow().as_ref().map(DesktopWindow::hwnd) else { return };
-        let items = [
+        let (next, about) = self.wallpaper_menu();
+        let mut items = Vec::new();
+        if next {
+            items.push(MenuItem::new(MENU_NEXT_BACKGROUND, "Next desktop background"));
+        }
+        if let Some(title) = about {
+            items.push(MenuItem::new(MENU_ABOUT_PICTURE, format!("About this picture: {title}")));
+        }
+        if !items.is_empty() {
+            items.push(MenuItem::Separator);
+        }
+        items.extend([
             MenuItem::new(MENU_PERSONALISE, "Personalise"),
             MenuItem::new(MENU_DISPLAY, "Display settings"),
             MenuItem::Separator,
@@ -66,13 +79,15 @@ impl App {
             MenuItem::new(MENU_TASK_MANAGER, "Task Manager"),
             MenuItem::Separator,
             MenuItem::new(MENU_FERROSHELL, "Ferroshell settings"),
-        ];
+        ]);
         match fsh_win::menu::popup(owner, x, y, Anchor::Below, &items) {
             Some(MENU_PERSONALISE) => crate::actions::launch("ms-settings:personalization-background".into()),
             Some(MENU_DISPLAY) => crate::actions::launch("ms-settings:display".into()),
             Some(MENU_DESKTOP_FOLDER) => crate::actions::launch("shell:Desktop".into()),
             Some(MENU_TASK_MANAGER) => crate::actions::launch("taskmgr.exe".into()),
             Some(MENU_FERROSHELL) => crate::actions::invoke("settings", ""),
+            Some(MENU_NEXT_BACKGROUND) => self.wallpaper_tick(true),
+            Some(MENU_ABOUT_PICTURE) => self.wallpaper_about(),
             _ => {}
         }
     }

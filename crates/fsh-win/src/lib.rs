@@ -33,6 +33,7 @@ pub mod system;
 pub mod taskbar;
 pub mod thumbnail;
 pub mod tray;
+pub mod wallpaper;
 pub mod window;
 pub mod winevent;
 pub mod winfo;

@@ -26,6 +26,7 @@ mod timefmt;
 mod tracker;
 mod tray;
 mod traybar;
+mod wallpaper;
 mod watch;
 
 use std::process::ExitCode;
@@ -98,6 +99,20 @@ fn main() -> ExitCode {
         let _com = fsh_win::com::ComGuard::mta();
         let result = lockscreen::sync_now();
         println!("{}", serde_json::json!({ "ok": result.is_ok(), "result": result.unwrap_or_else(|e| e) }));
+        return ExitCode::SUCCESS;
+    }
+    // `fsh-shell --spotlight`: fetch today's Spotlight pictures and download the first,
+    // without changing the wallpaper; prints what it found.
+    if std::env::args().nth(1).as_deref() == Some("--spotlight") {
+        let _com = fsh_win::com::ComGuard::mta();
+        let result = wallpaper::fetch_spotlight().and_then(|items| {
+            let path = wallpaper::download_spotlight(&items[0])?;
+            Ok(serde_json::json!({ "items": items, "downloaded": path }))
+        });
+        match result {
+            Ok(v) => println!("{v}"),
+            Err(e) => println!("{}", serde_json::json!({ "error": format!("{e:#}") })),
+        }
         return ExitCode::SUCCESS;
     }
     let _log = fsh_common::init_logging("shell").ok();

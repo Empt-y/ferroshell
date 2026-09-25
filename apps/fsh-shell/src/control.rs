@@ -56,6 +56,11 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
             app::with(|a| a.toggle_launcher(crate::launcher::Anchor::Cursor));
             json!({"ok": true})
         }),
+        // Next slideshow / Spotlight picture (login shell only; Explorer does it otherwise).
+        "wallpaper.next" => on_ui(|| {
+            app::with(|a| a.wallpaper_tick(true));
+            json!({"ok": true})
+        }),
         "shutdown" | "quit" => exit(exit_codes::QUIT),
         "restart" => exit(exit_codes::RESTART),
         "debug.crash" => {

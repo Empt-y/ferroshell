@@ -1367,6 +1367,7 @@ dependencies = [
  "fsh-win",
  "roxmltree 0.20.0",
  "serde",
+ "serde_json",
  "tracing",
 ]
 

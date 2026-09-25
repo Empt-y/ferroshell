@@ -107,6 +107,7 @@ pub struct App {
     pub(crate) desktop: crate::desktop::Desktop,
     pub(crate) shell_keys: crate::shellkeys::ShellKeys,
     pub(crate) lock_screen: crate::lockscreen::LockScreenSync,
+    pub(crate) wallpaper: crate::wallpaper::WallpaperEngine,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
@@ -169,6 +170,7 @@ impl App {
             desktop: crate::desktop::Desktop::default(),
             shell_keys: crate::shellkeys::ShellKeys::default(),
             lock_screen: crate::lockscreen::LockScreenSync::default(),
+            wallpaper: crate::wallpaper::WallpaperEngine::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -192,6 +194,7 @@ impl App {
         if replace {
             app.start_desktop();
             app.start_shell_keys();
+            app.start_wallpaper_engine();
         }
         app.load();
         app.rebuild_panels();
@@ -690,6 +693,7 @@ impl App {
             "desktop": self.desktop_state(),
             "shortcuts": self.shell_keys_state(),
             "lock_screen": self.lock_screen_state(),
+            "wallpaper": self.wallpaper_state(),
             "identity": fsh_win::identity::package_full_name(),
             "config_error": st.config.error(),
             "config_from_last_good": matches!(st.config, LoadOutcome::Fallback { from_last_good: true, .. }),

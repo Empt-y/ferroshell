@@ -14,3 +14,4 @@ pub mod hotkeys;
 pub mod launcher;
 pub mod tasks;
 pub mod tray;
+pub mod wallpaper;
