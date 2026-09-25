@@ -92,6 +92,11 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
                 json!({"ok": true})
             })
         }
+        // Show a notification banner: the newest current notification, or a sample.
+        "debug.banner" => on_ui(|| {
+            app::with(|a| a.debug_banner());
+            json!({"ok": true})
+        }),
         "debug.hang" => {
             // Blocks the UI thread to test hang detection.
             let secs = params.get("secs").and_then(Value::as_u64).unwrap_or(30);

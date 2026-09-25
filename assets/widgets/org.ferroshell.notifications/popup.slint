@@ -1,0 +1,163 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Notifications, Notification } from "@ferroshell/services.slint";
+import { Label, DimLabel, Heading, Toggle, BellIcon, GlyphIcon } from "@ferroshell/controls.slint";
+
+component TextButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    height: 26px;
+    width: label.preferred-width + 20px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : Theme.highlight;
+    label := Text {
+        text: root.text;
+        color: Theme.foreground;
+        font-size: Theme.font-size * 0.9;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+component CloseButton inherits Rectangle {
+    callback clicked();
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    background: touch.has-hover ? Theme.hover : transparent;
+    GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; width: 9px; height: 9px; kind: "close"; }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+// Explains why the list is empty and what to do about it.
+component Notice inherits VerticalLayout {
+    in property <string> text;
+    in property <string> action;
+    callback act();
+    spacing: 10px;
+    padding-top: 20px;
+    alignment: start;
+    HorizontalLayout {
+        alignment: center;
+        BellIcon { width: 36px; height: 36px; tint: Theme.foreground-dim; }
+    }
+    Text {
+        text: root.text;
+        color: Theme.foreground-dim;
+        wrap: word-wrap;
+        horizontal-alignment: center;
+    }
+    if root.action != "": HorizontalLayout {
+        alignment: center;
+        TextButton { text: root.action; clicked => { root.act(); } }
+    }
+}
+
+component Item inherits VerticalLayout {
+    in property <Notification> n;
+    spacing: 4px;
+    // The app's heading, once per group.
+    if root.n.first-in-group: HorizontalLayout {
+        spacing: 8px;
+        padding-top: 6px;
+        if root.n.has-icon: VerticalLayout {
+            alignment: center;
+            Image { width: 16px; height: 16px; source: root.n.icon; image-fit: contain; }
+        }
+        Heading { text: root.n.app; horizontal-stretch: 1; }
+        CloseButton { clicked => { Notifications.clear-app(root.n.app-id); } }
+    }
+    Rectangle {
+        border-radius: 6px;
+        background: touch.has-hover ? Theme.hover : Theme.highlight.with-alpha(0.35);
+        height: content.preferred-height;
+        touch := TouchArea { clicked => { Notifications.open(root.n.id); } }
+        content := HorizontalLayout {
+            padding: 10px;
+            spacing: 8px;
+            // Unread marker.
+            Rectangle {
+                width: 6px;
+                Rectangle {
+                    y: 6px;
+                    width: 6px;
+                    height: 6px;
+                    border-radius: 3px;
+                    background: root.n.unread ? Theme.accent : transparent;
+                }
+            }
+            VerticalLayout {
+                spacing: 2px;
+                horizontal-stretch: 1;
+                HorizontalLayout {
+                    spacing: 6px;
+                    Label {
+                        text: root.n.title != "" ? root.n.title : root.n.app;
+                        font-weight: 600;
+                        horizontal-stretch: 1;
+                    }
+                    DimLabel { text: root.n.time; }
+                }
+                if root.n.body != "": Text {
+                    text: root.n.body;
+                    color: Theme.foreground-dim;
+                    font-size: Theme.font-size * 0.92;
+                    wrap: word-wrap;
+                    overflow: elide;
+                    max-height: Theme.font-size * 4.2;
+                }
+            }
+            CloseButton { clicked => { Notifications.dismiss(root.n.id); } }
+        }
+    }
+}
+
+export component Popup inherits Rectangle {
+    in property <string> instance-id;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 10px;
+
+        HorizontalLayout {
+            spacing: 10px;
+            Label { text: "Notifications"; font-weight: 600; horizontal-stretch: 1; }
+            if Notifications.access == "allowed" && Notifications.count > 0: TextButton {
+                text: "Clear all";
+                clicked => { Notifications.clear-all(); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            DimLabel { text: "Do not disturb"; horizontal-stretch: 1; vertical-alignment: center; }
+            Toggle { checked: Notifications.dnd; toggled(v) => { Notifications.set-dnd(v); } }
+        }
+
+        if !Notifications.available: Notice { text: "Notifications are unavailable."; }
+        if Notifications.available && Notifications.access == "no-identity": Notice {
+            text: "Reading other apps' notifications needs a one-time setup that gives Ferroshell a package identity. See packaging\\identity\\README.md in the Ferroshell folder.";
+        }
+        if Notifications.available && Notifications.access == "unspecified": Notice {
+            text: "Windows needs your permission for Ferroshell to show other apps' notifications.";
+            action: "Allow access";
+            act => { Notifications.request-access(); }
+        }
+        if Notifications.available && Notifications.access == "denied": Notice {
+            text: "Access to notifications is turned off in Windows' privacy settings.";
+            action: "Open privacy settings";
+            act => { Shell.invoke("launch", "ms-settings:privacy-notifications"); Shell.invoke("close-popup", ""); }
+        }
+        if Notifications.access == "allowed" && Notifications.count == 0: Notice { text: "No new notifications"; }
+
+        if Notifications.access == "allowed" && Notifications.count > 0: Flickable {
+            vertical-stretch: 1;
+            viewport-height: list.preferred-height;
+            list := VerticalLayout {
+                spacing: 6px;
+                alignment: start;
+                for n in Notifications.items: Item { n: n; }
+            }
+        }
+        if Notifications.access != "allowed" || Notifications.count == 0: Rectangle { vertical-stretch: 1; }
+    }
+}

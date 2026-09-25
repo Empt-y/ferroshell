@@ -1,0 +1,32 @@
+id = "org.ferroshell.notifications"
+name = "Notifications"
+description = "Other apps' notifications, with banners and Do Not Disturb. Needs package identity: see packaging/identity/README.md."
+version = "1.0.0"
+api = 1
+services = ["notifications"]
+
+[popup]
+file = "popup.slint"
+width = 380
+height = 500
+
+[config.banners]
+type = "enum"
+default = "auto"
+options = ["auto", "always", "never"]
+label = "Banners for new notifications"
+ui = false
+description = "auto: only while Ferroshell replaces Explorer (alongside it, Windows shows its own)."
+
+[config.banner-seconds]
+type = "int"
+default = 6
+min = 2
+max = 60
+label = "Show banners for (seconds)"
+ui = false
+
+[config.show-count]
+type = "bool"
+default = true
+label = "Show the unread count on the panel"

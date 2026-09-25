@@ -19,6 +19,7 @@ pub mod media;
 pub mod menu;
 pub mod monitor;
 pub mod network;
+pub mod notifications;
 pub mod panel;
 pub mod power;
 pub mod process;

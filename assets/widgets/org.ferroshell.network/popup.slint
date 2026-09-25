@@ -1,6 +1,6 @@
 import { Shell, Theme } from "@ferroshell/api.slint";
 import { Network, WifiNetwork } from "@ferroshell/services.slint";
-import { Label, DimLabel, Heading, ListRow, IconButton, Toggle, WifiIcon, EthernetIcon, AirplaneIcon } from "@ferroshell/controls.slint";
+import { Label, DimLabel, Heading, ListRow, IconButton, Toggle, WifiIcon, EthernetIcon, AirplaneIcon, GlyphIcon } from "@ferroshell/controls.slint";
 
 component SignalIcon inherits WifiIcon {
     width: 16px;
@@ -40,7 +40,7 @@ component NetworkRow inherits Rectangle {
             if root.net.connected: IconButton {
                 tooltip: "Disconnect";
                 clicked => { Network.disconnect(); }
-                Text { text: "✕"; color: Theme.foreground-dim; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; kind: "close"; }
             }
         }
         if root.expanded: HorizontalLayout {
@@ -71,7 +71,7 @@ component NetworkRow inherits Rectangle {
                 height: 30px;
                 tooltip: "Connect";
                 clicked => { Network.connect-new(root.net.ssid, pw.text); }
-                Text { text: "→"; color: Theme.accent; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; kind: "arrow"; tint: Theme.accent; }
             }
         }
     }
@@ -144,7 +144,7 @@ export component Popup inherits Rectangle {
                         height: 26px;
                         tooltip: "Scan again";
                         clicked => { Network.scan(); }
-                        Text { text: "⟳"; color: Theme.foreground-dim; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                        GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; kind: "refresh"; }
                     }
                 }
                 if Network.networks.length == 0: DimLabel { text: "Scanning…"; }
@@ -160,7 +160,7 @@ export component Popup inherits Rectangle {
                     IconButton {
                         tooltip: "Disconnect";
                         clicked => { Network.vpn-disconnect(vpn.name); }
-                        Text { text: "✕"; color: Theme.foreground-dim; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                        GlyphIcon { x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; kind: "close"; }
                     }
                 }
             }

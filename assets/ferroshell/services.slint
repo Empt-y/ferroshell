@@ -203,3 +203,42 @@ export global Power {
     callback set-power-mode(/* "efficiency" | "balanced" | "performance" */ string);
     callback set-brightness(/* display id */ string, /* 0-100 */ float);
 }
+
+// A notification in Windows' notification centre, ready to list: grouped by app, newest
+// first (`first-in-group` marks the start of each app's group).
+export struct Notification {
+    id: int,
+    app-id: string,
+    app: string,
+    icon: image,
+    has-icon: bool,
+    title: string,
+    body: string,
+    // "now", "5 min ago", "14:32", "Yesterday", ...
+    time: string,
+    first-in-group: bool,
+    // Not yet seen in the notifications popup.
+    unread: bool,
+}
+
+// Service "notifications": other apps' notifications. Needs package identity (see
+// packaging/identity/README.md) and the user's permission.
+export global Notifications {
+    in property <bool> available;
+    // "allowed", "unspecified" (not asked yet), "denied", or "no-identity".
+    in property <string> access;
+    in property <int> count;
+    in property <int> unread;
+    // Ferroshell's Do Not Disturb: no banners.
+    in property <bool> dnd;
+    in property <[Notification]> items;
+
+    // Ask Windows for access (shows its consent prompt the first time).
+    callback request-access();
+    callback dismiss(/* id */ int);
+    callback clear-app(/* app-id */ string);
+    callback clear-all();
+    // Start the app that sent it, and dismiss it.
+    callback open(/* id */ int);
+    callback set-dnd(bool);
+}

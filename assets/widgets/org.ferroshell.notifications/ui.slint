@@ -1,0 +1,45 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Notifications } from "@ferroshell/services.slint";
+import { PanelButton, BellIcon } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+    in property <bool> show-count: true;
+
+    horizontal-stretch: 0;
+    content-padding: 6px;
+    accessible-role: button;
+    accessible-label: Notifications.unread > 0 ? Notifications.unread + " unread notifications" : "Notifications";
+
+    clicked => {
+        Shell.invoke("popup", root.instance-id + "|" + (self.absolute-position.x / 1px) + "," + (self.absolute-position.y / 1px)
+            + "," + (self.width / 1px) + "," + (self.height / 1px));
+    }
+
+    Rectangle {
+        width: Theme.icon-size * 0.8;
+        height: self.width;
+        BellIcon {
+            width: 100%;
+            height: 100%;
+            muted: Notifications.dnd;
+            tint: Notifications.access == "allowed" ? Theme.foreground : Theme.foreground-dim;
+        }
+        if root.show-count && Notifications.unread > 0 && !Notifications.dnd: Rectangle {
+            x: parent.width - self.width * 0.7;
+            y: -self.height * 0.25;
+            width: max(self.height, badge.preferred-width + 6px);
+            height: 14px;
+            border-radius: self.height / 2;
+            background: Theme.accent;
+            badge := Text {
+                text: Notifications.unread > 99 ? "99+" : Notifications.unread;
+                color: #ffffff;
+                font-size: 9px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

@@ -2,6 +2,7 @@
 // restyle these by overriding the Theme tokens.
 
 import { Theme } from "api.slint";
+import { GlyphIcon } from "controls.slint";
 export { Theme }
 
 // One window preview. Positions are computed by the shell (it has to place the live DWM
@@ -78,12 +79,11 @@ export component PreviewPopup inherits Window {
                 opacity: item-touch.has-hover || close-touch.has-hover ? 1 : 0;
                 border-radius: 4px;
                 background: close-touch.has-hover ? Theme.error.with-alpha(0.8) : transparent;
-                Text {
-                    text: "✕";
-                    color: Theme.foreground;
-                    font-size: Theme.font-size * 0.9;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
+                GlyphIcon {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    kind: "close";
+                    tint: Theme.foreground;
                 }
                 close-touch := TouchArea {
                     clicked => { root.close-window(i); }

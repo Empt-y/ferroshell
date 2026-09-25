@@ -39,15 +39,19 @@ windows-collections = "0.3"
 [workspace.dependencies.windows]
 version = "0.62"
 features = [
+    "ApplicationModel",
     "Devices_Bluetooth",
     "Devices_Enumeration",
     "Devices_Power",
+    "Data_Xml_Dom",
     "Devices_Radios",
     "Foundation",
     "Media_Control",
     "Networking_Connectivity",
     "Storage_Streams",
     "System_Power",
+    "UI_Notifications",
+    "UI_Notifications_Management",
     "Win32_Devices_Display",
     "Win32_Devices_FunctionDiscovery",
     "Win32_Foundation",

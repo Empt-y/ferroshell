@@ -9,6 +9,7 @@ pub mod audio;
 pub mod media;
 pub mod bluetooth;
 pub mod network;
+pub mod notifications;
 pub mod power;
 
 use std::cell::RefCell;
@@ -30,6 +31,7 @@ pub enum Update {
     Network(network::Snapshot),
     Bluetooth(bluetooth::Snapshot),
     Power(power::Snapshot),
+    Notifications(notifications::Snapshot),
 }
 
 #[derive(Default)]
@@ -60,6 +62,14 @@ pub struct Services {
     vpns: Rc<VecModel<Value>>,
     bt_devices: Rc<VecModel<Value>>,
     displays: Rc<VecModel<Value>>,
+    // Notifications (see `crate::notify`).
+    pub(crate) notifications: RefCell<Option<notifications::NotificationService>>,
+    pub(crate) notif_state: RefCell<notifications::Snapshot>,
+    pub(crate) notif_rows: Rc<VecModel<Value>>,
+    /// Ids the user has seen (the popup was open while they were there).
+    pub(crate) notif_seen: RefCell<std::collections::HashSet<u32>>,
+    pub(crate) notif_dnd: std::cell::Cell<bool>,
+    pub(crate) logo_images: RefCell<HashMap<std::path::PathBuf, Image>>,
 }
 
 type GlobalCallback = Box<dyn Fn(&[Value]) -> Value>;
@@ -70,7 +80,7 @@ fn post(u: Update) {
     });
 }
 
-fn strukt(fields: Vec<(&str, Value)>) -> Value {
+pub(crate) fn strukt(fields: Vec<(&str, Value)>) -> Value {
     Value::Struct(fields.into_iter().map(|(k, v)| (k.to_owned(), v)).collect::<Struct>())
 }
 
@@ -93,7 +103,7 @@ fn text(a: &[Value], i: usize) -> String {
 }
 
 /// Replace a model's rows, changing only rows that differ when the length is unchanged.
-fn sync_model(model: &VecModel<Value>, rows: Vec<Value>) {
+pub(crate) fn sync_model(model: &VecModel<Value>, rows: Vec<Value>) {
     if model.row_count() == rows.len() {
         for (i, row) in rows.into_iter().enumerate() {
             if model.row_data(i).as_ref() != Some(&row) {
@@ -188,7 +198,18 @@ impl App {
             drop(s.power.borrow_mut().take());
             self.on_service_update(Update::Power(power::Snapshot::default()));
         }
-        for unknown in wanted.iter().filter(|w| !["audio", "media", "network", "bluetooth", "power"].contains(&w.as_str())) {
+        let running = s.notifications.borrow().is_some();
+        if wanted.contains("notifications") && !running {
+            s.notif_dnd.set(crate::notify::load_dnd());
+            match notifications::NotificationService::spawn(post) {
+                Ok(svc) => *s.notifications.borrow_mut() = Some(svc),
+                Err(e) => tracing::error!("could not start the notifications service: {e:#}"),
+            }
+        } else if !wanted.contains("notifications") && running {
+            drop(s.notifications.borrow_mut().take());
+            self.on_service_update(Update::Notifications(notifications::Snapshot::default()));
+        }
+        for unknown in wanted.iter().filter(|w| !["audio", "media", "network", "bluetooth", "power", "notifications"].contains(&w.as_str())) {
             tracing::warn!("a widget asks for unknown service `{unknown}`");
         }
     }
@@ -309,15 +330,18 @@ impl App {
         set("Network", "vpns", Value::Model(ModelRc::from(s.vpns.clone())));
         set("Bluetooth", "devices", Value::Model(ModelRc::from(s.bt_devices.clone())));
         set("Power", "displays", Value::Model(ModelRc::from(s.displays.clone())));
+        set("Notifications", "items", Value::Model(ModelRc::from(s.notif_rows.clone())));
         self.apply_audio(instance);
         self.apply_media(instance);
         self.apply_network(instance);
         self.apply_bluetooth(instance);
         self.apply_power(instance);
+        self.bind_notifications(instance);
+        self.apply_notifications(instance);
     }
 
     /// Every instance showing service data: panels and compiled popups.
-    fn for_each_instance(&self, f: &dyn Fn(&ComponentInstance)) {
+    pub(crate) fn for_each_instance(&self, f: &dyn Fn(&ComponentInstance)) {
         for p in &self.state.borrow().panels {
             f(&p.instance);
         }
@@ -408,6 +432,7 @@ impl App {
                 *s.power_state.borrow_mut() = snap;
                 self.for_each_instance(&|i| self.apply_power(i));
             }
+            Update::Notifications(snap) => self.on_notifications(snap),
         }
     }
 
@@ -642,6 +667,7 @@ impl App {
                 "displays": p.displays.iter().map(|d| serde_json::json!({"name": d.name, "brightness": d.brightness, "internal": d.internal})).collect::<Vec<_>>(),
                 "error": p.error,
             },
+            "notifications": self.notifications_state(),
         })
     }
 }

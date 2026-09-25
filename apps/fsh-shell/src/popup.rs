@@ -198,6 +198,21 @@ impl App {
         self.popups.attach_timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), move || {
             with(|app| app.popup_attach(rect));
         });
+        let services = self.popup_services(key, instance);
+        self.services_popup_opened(&services);
+    }
+
+    /// The services the widget owning this popup declares (`services = [...]`).
+    fn popup_services(&self, key: &PanelKey, instance: &str) -> Vec<String> {
+        let st = self.state.borrow();
+        (|| {
+            let panel = st.panels.iter().find(|p| &p.key == key)?;
+            let statuses = &st.statuses.iter().find(|(n, _)| n == &panel.name)?.1;
+            let index = statuses.iter().position(|s| s.instance == instance)?;
+            let entry = panel.config.widgets.get(index)?;
+            Some(st.registry.get(&entry.id).ok()?.manifest.services.clone())
+        })()
+        .unwrap_or_default()
     }
 
     fn popup_attach(&self, rect: Rect) {

@@ -7,8 +7,10 @@ mod apps;
 mod app;
 mod app_tasks;
 mod app_tray;
+mod banner;
 mod control;
 mod launcher;
+mod notify;
 mod osd;
 mod panel;
 mod plugins;
@@ -54,10 +56,35 @@ fn main() -> ExitCode {
     // `fsh-shell --identity`: report the package identity (packaging/identity/) and exit,
     // without starting the shell. Exit code 0 with identity, 2 without.
     if std::env::args().nth(1).as_deref() == Some("--identity") {
+        let _com = fsh_win::com::ComGuard::mta();
         let name = fsh_win::identity::package_full_name();
         let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
-        println!("{}", serde_json::json!({ "identity": name, "exe": exe }));
+        // Never prompts: the consent prompt comes from the notifications applet.
+        let access = fsh_win::notifications::access();
+        // Which apps, and whether text was found: never the notifications' content.
+        let toasts = (access == fsh_win::notifications::Access::Allowed).then(fsh_win::notifications::toasts).unwrap_or_default();
+        let summary: Vec<_> = toasts
+            .iter()
+            .map(|t| serde_json::json!({ "app": t.app_name, "has_app_id": !t.app_id.is_empty(), "has_title": !t.title.is_empty(), "has_body": !t.body.is_empty(), "created": t.created }))
+            .collect();
+        println!("{}", serde_json::json!({ "identity": name, "exe": exe, "notification_access": format!("{access:?}"), "notifications": summary }));
         return if name.is_some() { ExitCode::SUCCESS } else { ExitCode::from(2) };
+    }
+    // `fsh-shell --test-notification [count]`: raise test notifications as Ferroshell (needs
+    // package identity) to try out the notifications applet and banners, then exit.
+    if std::env::args().nth(1).as_deref() == Some("--test-notification") {
+        let _com = fsh_win::com::ComGuard::mta();
+        let count: u32 = std::env::args().nth(2).and_then(|n| n.parse().ok()).unwrap_or(1).clamp(1, 10);
+        for i in 1..=count {
+            let title = format!("Ferroshell test {i}");
+            if let Err(e) = fsh_win::notifications::send_test(&title, "A test notification for the notifications applet. Safe to dismiss.") {
+                println!("could not send: {e} (does fsh-shell.exe have package identity? try --identity)");
+                return ExitCode::FAILURE;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+        println!("sent {count}");
+        return ExitCode::SUCCESS;
     }
     let _log = fsh_common::init_logging("shell").ok();
     crash::install_minidump_handler(&paths::dump_dir(), "fsh-shell");

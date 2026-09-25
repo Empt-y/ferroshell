@@ -101,6 +101,7 @@ pub struct App {
     pub(crate) popups: crate::popup::Popups,
     pub(crate) services: crate::services::Services,
     pub(crate) osd: crate::osd::Osd,
+    pub(crate) banner: crate::banner::Banner,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
@@ -158,6 +159,7 @@ impl App {
             popups: crate::popup::Popups::default(),
             services: crate::services::Services::default(),
             osd: crate::osd::Osd::default(),
+            banner: crate::banner::Banner::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -657,6 +659,7 @@ impl App {
             p.set_now(now);
         }
         self.popup_tick(now);
+        self.notifications_tick(now);
     }
 
     // ---------------------------------------------------------------- introspection
