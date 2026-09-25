@@ -12,6 +12,7 @@ pub mod console;
 pub mod crash;
 pub mod hotkey;
 pub mod icon;
+pub mod identity;
 pub mod job;
 pub mod keyhook;
 pub mod media;

@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<!--
+  Embedded into fsh-shell.exe by apps/fsh-shell/build.rs. The <msix> element ties the exe
+  to the identity package in AppxManifest.xml (same publisher, package name and
+  application id). It only takes effect once that package is registered with the exe's
+  folder as its external location; until then the exe runs without identity.
+-->
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="0.1.0.0" name="Ferroshell.Shell" />
+  <msix xmlns="urn:schemas-microsoft-com:msix.v1"
+        publisher="CN=Ferroshell Local Identity"
+        packageName="Ferroshell.Shell"
+        applicationId="Shell" />
+</assembly>

@@ -1,2 +1,3 @@
 ﻿/target
 *.dmp
+/packaging/identity/out/

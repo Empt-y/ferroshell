@@ -51,6 +51,14 @@ fn parse_args() -> anyhow::Result<Args> {
 }
 
 fn main() -> ExitCode {
+    // `fsh-shell --identity`: report the package identity (packaging/identity/) and exit,
+    // without starting the shell. Exit code 0 with identity, 2 without.
+    if std::env::args().nth(1).as_deref() == Some("--identity") {
+        let name = fsh_win::identity::package_full_name();
+        let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_default();
+        println!("{}", serde_json::json!({ "identity": name, "exe": exe }));
+        return if name.is_some() { ExitCode::SUCCESS } else { ExitCode::from(2) };
+    }
     let _log = fsh_common::init_logging("shell").ok();
     crash::install_minidump_handler(&paths::dump_dir(), "fsh-shell");
     match run() {

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Ferroshell's identity package: a "sparse" package (package with external location). It
+  holds no files of its own; registering it with -ExternalLocation pointing at the folder
+  with fsh-shell.exe gives that exe a package identity, which Windows requires for reading
+  other apps' notifications (UserNotificationListener).
+
+  fsh-shell.exe carries the matching <msix> element in its embedded manifest
+  (fsh-shell.manifest). Publisher, Name and the Application Id must match it exactly.
+  Without the package registered, fsh-shell.exe runs normally, just without identity.
+-->
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+  xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+  xmlns:desktop6="http://schemas.microsoft.com/appx/manifest/desktop/windows10/6"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap3 uap10 desktop6 rescap">
+
+  <Identity Name="Ferroshell.Shell" Publisher="CN=Ferroshell Local Identity" Version="0.1.0.0" ProcessorArchitecture="x64" />
+
+  <Properties>
+    <DisplayName>Ferroshell</DisplayName>
+    <PublisherDisplayName>Ferroshell</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+    <uap10:AllowExternalContent>true</uap10:AllowExternalContent>
+    <!-- Ferroshell (and the apps it launches) must keep reading and writing the real
+         %APPDATA%/%LOCALAPPDATA% and registry, not per-package redirected copies. -->
+    <desktop6:FileSystemWriteVirtualization>disabled</desktop6:FileSystemWriteVirtualization>
+    <desktop6:RegistryWriteVirtualization>disabled</desktop6:RegistryWriteVirtualization>
+  </Properties>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26200.0" />
+  </Dependencies>
+
+  <Capabilities>
+    <uap3:Capability Name="userNotificationListener" />
+    <rescap:Capability Name="runFullTrust" />
+    <rescap:Capability Name="unvirtualizedResources" />
+  </Capabilities>
+
+  <Applications>
+    <Application Id="Shell" Executable="fsh-shell.exe" uap10:TrustLevel="mediumIL" uap10:RuntimeBehavior="win32App">
+      <uap:VisualElements
+        DisplayName="Ferroshell"
+        Description="Ferroshell desktop shell"
+        BackgroundColor="transparent"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        AppListEntry="none" />
+    </Application>
+  </Applications>
+</Package>

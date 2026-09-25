@@ -37,6 +37,7 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
             json!({
                 "pid": std::process::id(),
                 "safe_mode": app::with(|a| a.dump_state()["safe_mode"].clone()).unwrap_or(Value::Null),
+                "identity": fsh_win::identity::package_full_name(),
             })
         }),
         "dump_state" | "state" => on_ui(|| app::with(|a| a.dump_state()).unwrap_or(Value::Null)),

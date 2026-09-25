@@ -667,6 +667,7 @@ impl App {
         let tasks = self.tasks.borrow();
         json!({
             "safe_mode": self.safe_mode,
+            "identity": fsh_win::identity::package_full_name(),
             "config_error": st.config.error(),
             "config_from_last_good": matches!(st.config, LoadOutcome::Fallback { from_last_good: true, .. }),
             "theme": { "name": st.theme_name, "display_name": st.theme.name, "warnings": st.theme_warnings,
