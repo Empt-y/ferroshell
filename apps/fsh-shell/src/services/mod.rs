@@ -41,6 +41,9 @@ pub struct Services {
     power: RefCell<Option<power::PowerService>>,
     // Power-setting notifications to the shell's event window while the power service runs.
     power_notify: RefCell<Option<fsh_win::power::PowerNotifications>>,
+    // Last brightness notified: Windows sends the current value on registration, which
+    // mustn't pop the OSD.
+    last_brightness: std::cell::Cell<Option<u8>>,
     audio_state: RefCell<audio::Snapshot>,
     media_state: RefCell<media::Snapshot>,
     network_state: RefCell<network::Snapshot>,
@@ -181,6 +184,7 @@ impl App {
             }
         } else if !wanted.contains("power") && running {
             drop(s.power_notify.borrow_mut().take());
+            s.last_brightness.set(None);
             drop(s.power.borrow_mut().take());
             self.on_service_update(Update::Power(power::Snapshot::default()));
         }
@@ -552,7 +556,8 @@ impl App {
         self.power_cmd(power::Cmd::Refresh);
         if let fsh_win::power::PowerSetting::Brightness(level) = setting {
             tracing::debug!("brightness changed to {level}");
-            if crate::osd::media_keys_wanted(self.safe_mode) {
+            let previous = self.services.last_brightness.replace(Some(level));
+            if previous.is_some_and(|p| p != level) && crate::osd::media_keys_wanted(self.safe_mode) {
                 self.show_osd_level(crate::osd::OsdKind::Brightness, f64::from(level), false);
             }
         }

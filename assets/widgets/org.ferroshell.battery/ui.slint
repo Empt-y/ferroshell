@@ -26,12 +26,16 @@ export component Widget inherits PanelButton {
         Power.set-brightness(Power.displays[0].id, max(0, min(100, Power.displays[0].brightness + n * 5)));
     }
 
-    if root.shown && Power.has-battery: BatteryIcon {
-        y: (parent.height - self.height) / 2;
-        percent: Power.percent;
-        charging: Power.charging;
-        width: Theme.icon-size * 0.9;
-        height: self.width * 0.55;
+    // In a centring layout: the icon is shorter than it is wide, and a bare child of the
+    // button's row would sit at the top.
+    if root.shown && Power.has-battery: VerticalLayout {
+        alignment: center;
+        BatteryIcon {
+            percent: Power.percent;
+            charging: Power.charging;
+            width: Theme.icon-size * 0.9;
+            height: self.width * 0.55;
+        }
     }
     if root.shown && !Power.has-battery: SunIcon {
         width: Theme.icon-size * 0.8;
