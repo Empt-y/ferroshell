@@ -91,6 +91,15 @@ pub fn packaged_aumid(target: &str) -> Option<&str> {
     (rest.contains('!') && !rest.contains('\\')).then_some(rest)
 }
 
+/// Opens the Properties dialog for a file or folder (or a shell item such as `::{CLSID}`).
+pub fn show_properties(parsing_name: &str, owner: Option<Hwnd>) {
+    use windows::Win32::UI::Shell::{SHOP_FILEPATH, SHObjectProperties};
+    let name = wide(parsing_name);
+    unsafe {
+        let _ = SHObjectProperties(owner.map(|h| h.raw()), SHOP_FILEPATH, PCWSTR(name.as_ptr()), PCWSTR::null());
+    }
+}
+
 /// Starts a packaged app by its app user model id, the way Start does. Unlike opening
 /// `shell:AppsFolder\<id>`, this works without Explorer. Needs COM on the thread.
 pub fn activate_app(aumid: &str, args: Option<&str>) -> anyhow::Result<u32> {

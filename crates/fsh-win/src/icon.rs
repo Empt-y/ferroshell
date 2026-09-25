@@ -80,6 +80,20 @@ pub fn shell_item_icon(parsing_name: &str, size: i32) -> Option<RgbaImage> {
     }
 }
 
+/// A shell bitmap (premultiplied, e.g. from `IShellItemImageFactory`) as straight RGBA.
+/// Photo thumbnails often come with no alpha at all (every pixel 0): those are opaque.
+pub fn hbitmap_to_rgba(hbm: HBITMAP) -> Option<RgbaImage> {
+    let (w, h, mut px) = bitmap_pixels(hbm)?;
+    if px.as_chunks::<4>().0.iter().all(|p| p[3] == 0) {
+        for p in px.as_chunks_mut::<4>().0 {
+            p[3] = 255;
+        }
+    } else {
+        unpremultiply(&mut px);
+    }
+    Some(RgbaImage { width: w, height: h, pixels: px })
+}
+
 /// Read a bitmap as top-down BGRA → RGBA (alpha untouched).
 fn bitmap_pixels(hbm: HBITMAP) -> Option<(u32, u32, Vec<u8>)> {
     unsafe {

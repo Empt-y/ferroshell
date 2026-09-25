@@ -1,0 +1,277 @@
+// The desktop (wallpaper and icons) while Ferroshell is the login shell, one window per
+// monitor.
+//
+// Restyle it by copying this file to %APPDATA%\ferroshell\library\desktop.slint (or a
+// theme's library\ folder); keep the `Desktop` global. The shell arranges the icons,
+// tracks selection and does every file operation; this file draws and reports input.
+
+import { Theme } from "api.slint";
+export { Theme }
+
+export struct DesktopIcon {
+    name: string,
+    icon: image,
+    // Top-left of the icon's grid cell, in this window.
+    x: length,
+    y: length,
+    selected: bool,
+    // Being renamed (the shell shows the editor over its label).
+    renaming: bool,
+}
+
+export global Desktop {
+    in property <image> wallpaper;
+    in property <bool> has-wallpaper;
+    // "fill", "fit", "stretch", "center" or "tile" (Windows' "Choose a fit").
+    in property <string> wallpaper-fit: "fill";
+    in property <color> background: #000000;
+
+    in property <bool> show-icons: true;
+    in property <[DesktopIcon]> icons;
+    in property <length> cell-width: 84px;
+    in property <length> cell-height: 98px;
+    in property <length> icon-size: 48px;
+    // Where a dragged selection would land (drawn as an outline), or none.
+    in property <bool> drop-visible;
+    in property <length> drop-x;
+    in property <length> drop-y;
+    // The rename editor's text.
+    in-out property <string> rename-text;
+
+    // Press/double-click on an icon.
+    callback icon-pointer(/* index */ int, /* "down" | "double" */ string, /* ctrl */ bool, /* shift */ bool);
+    // Dragging icons: "move" while dragging, then "drop" or "cancel"; window coordinates.
+    callback icon-drag(/* kind */ string, /* x */ length, /* y */ length);
+    // Empty-space pointer: "down", "move" (rubber band), "up", "double"; window coordinates.
+    callback background-pointer(/* kind */ string, /* x */ length, /* y */ length, /* ctrl */ bool);
+    // Right-click on an icon (index) or empty space (-1), window coordinates.
+    callback context(/* index */ int, /* x */ length, /* y */ length);
+    // A key: its text (e.g. "\u{f700}" for up, see Slint's Key namespace), with modifiers.
+    callback key(/* text */ string, /* ctrl */ bool, /* shift */ bool, /* alt */ bool) -> bool;
+    // The rename editor closed: accept (Enter or clicking away) or not (Escape).
+    callback rename-done(/* accept */ bool);
+}
+
+component Label inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    // Two lines at most, like Explorer (all of it while selected).
+    property <length> two-lines: 2.6 * Theme.font-size;
+    height: root.selected ? t.preferred-height : min(t.preferred-height, root.two-lines);
+    shadow := Text {
+        x: 1px;
+        y: 1px;
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        color: #000000c0;
+        horizontal-alignment: center;
+        vertical-alignment: top;
+        wrap: word-wrap;
+        overflow: elide;
+        font-size: Theme.font-size;
+    }
+    t := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.text;
+        color: #ffffff;
+        horizontal-alignment: center;
+        vertical-alignment: top;
+        wrap: word-wrap;
+        overflow: elide;
+        font-size: Theme.font-size;
+    }
+}
+
+component IconView inherits Rectangle {
+    in property <DesktopIcon> item;
+    in property <int> index;
+    property <bool> dragging;
+    property <length> press-x;
+    property <length> press-y;
+    x: item.x;
+    y: item.y;
+    width: Desktop.cell-width;
+    height: Desktop.cell-height;
+
+    highlight := Rectangle {
+        x: 4px;
+        y: 0px;
+        width: parent.width - 8px;
+        height: min(parent.height - 4px, 10px + Desktop.icon-size + label.height);
+        border-radius: 3px;
+        background: item.selected ? Theme.highlight : (area.has-hover ? #ffffff1a : transparent);
+        border-width: item.selected ? 1px : 0px;
+        border-color: Theme.accent.with-alpha(0.6);
+    }
+    Image {
+        x: (parent.width - self.width) / 2;
+        y: 4px;
+        width: Desktop.icon-size;
+        height: Desktop.icon-size;
+        source: item.icon;
+        image-fit: contain;
+    }
+    label := Label {
+        x: 6px;
+        y: 8px + Desktop.icon-size;
+        width: parent.width - 12px;
+        text: item.name;
+        selected: item.selected;
+        visible: !item.renaming;
+    }
+    if item.renaming: Rectangle {
+        x: 4px;
+        y: 6px + Desktop.icon-size;
+        width: parent.width - 8px;
+        height: editor.preferred-height + 6px;
+        background: Theme.popup-background;
+        border-width: 1px;
+        border-color: Theme.accent;
+        editor := TextInput {
+            x: 3px;
+            y: 3px;
+            width: parent.width - 6px;
+            text <=> Desktop.rename-text;
+            color: Theme.foreground;
+            font-size: Theme.font-size;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+            single-line: true;
+            init => {
+                self.focus();
+                self.select-all();
+            }
+            accepted => { Desktop.rename-done(true); }
+            key-pressed(e) => {
+                if e.text == Key.Escape {
+                    Desktop.rename-done(false);
+                    return accept;
+                }
+                reject
+            }
+        }
+    }
+
+    area := TouchArea {
+        mouse-cursor: default;
+        pointer-event(e) => {
+            if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                root.press-x = self.mouse-x;
+                root.press-y = self.mouse-y;
+                root.dragging = false;
+                Desktop.icon-pointer(root.index, "down", e.modifiers.control, e.modifiers.shift);
+            }
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.right {
+                Desktop.context(root.index, root.x + self.mouse-x, root.y + self.mouse-y);
+            }
+            if e.kind == PointerEventKind.up && e.button == PointerEventButton.left && root.dragging {
+                root.dragging = false;
+                Desktop.icon-drag("drop", root.x + self.mouse-x, root.y + self.mouse-y);
+            }
+        }
+        moved => {
+            if self.pressed && (root.dragging || abs(self.mouse-x - root.press-x) > 4px || abs(self.mouse-y - root.press-y) > 4px) {
+                root.dragging = true;
+                Desktop.icon-drag("move", root.x + self.mouse-x, root.y + self.mouse-y);
+            }
+        }
+        double-clicked => { Desktop.icon-pointer(root.index, "double", false, false); }
+    }
+}
+
+export component DesktopWindow inherits Window {
+    title: "Ferroshell Desktop";
+    no-frame: true;
+    background: Desktop.background;
+    default-font-size: Theme.font-size;
+    default-font-family: Theme.font-family;
+
+    // Windows' fits: fill = cover, fit = contain, stretch = fill, center = natural size.
+    if Desktop.has-wallpaper && Desktop.wallpaper-fit != "tile": Image {
+        width: parent.width;
+        height: parent.height;
+        source: Desktop.wallpaper;
+        image-fit: Desktop.wallpaper-fit == "fit" ? contain : Desktop.wallpaper-fit == "stretch" ? fill : Desktop.wallpaper-fit == "center" ? preserve : cover;
+    }
+    if Desktop.has-wallpaper && Desktop.wallpaper-fit == "tile": Image {
+        width: parent.width;
+        height: parent.height;
+        source: Desktop.wallpaper;
+        horizontal-tiling: repeat;
+        vertical-tiling: repeat;
+        horizontal-alignment: left;
+        vertical-alignment: top;
+    }
+
+    focus := FocusScope {
+        key-pressed(e) => {
+            if Desktop.key(e.text, e.modifiers.control, e.modifiers.shift, e.modifiers.alt) {
+                return accept;
+            }
+            reject
+        }
+
+        // Empty space: rubber-band selection, background menu.
+        band-area := TouchArea {
+            property <length> x0;
+            property <length> y0;
+            property <bool> banding;
+            pointer-event(e) => {
+                if e.kind == PointerEventKind.down && e.button == PointerEventButton.left {
+                    focus.focus();
+                    self.x0 = self.mouse-x;
+                    self.y0 = self.mouse-y;
+                    self.banding = false;
+                    Desktop.background-pointer("down", self.mouse-x, self.mouse-y, e.modifiers.control);
+                }
+                if e.kind == PointerEventKind.up && e.button == PointerEventButton.left {
+                    self.banding = false;
+                    Desktop.background-pointer("up", self.mouse-x, self.mouse-y, e.modifiers.control);
+                }
+                if e.kind == PointerEventKind.up && e.button == PointerEventButton.right {
+                    focus.focus();
+                    Desktop.context(-1, self.mouse-x, self.mouse-y);
+                }
+            }
+            moved => {
+                if self.pressed {
+                    self.banding = true;
+                    Desktop.background-pointer("move", self.mouse-x, self.mouse-y, false);
+                }
+            }
+            double-clicked => { Desktop.background-pointer("double", self.mouse-x, self.mouse-y, false); }
+        }
+        if band-area.banding: Rectangle {
+            x: min(band-area.x0, band-area.mouse-x);
+            y: min(band-area.y0, band-area.mouse-y);
+            width: abs(band-area.mouse-x - band-area.x0);
+            height: abs(band-area.mouse-y - band-area.y0);
+            background: Theme.accent.with-alpha(0.25);
+            border-width: 1px;
+            border-color: Theme.accent;
+        }
+
+        if Desktop.show-icons: Rectangle {
+            for icon[i] in Desktop.icons: IconView {
+                item: icon;
+                index: i;
+            }
+        }
+        if Desktop.drop-visible: Rectangle {
+            x: Desktop.drop-x;
+            y: Desktop.drop-y;
+            width: Desktop.cell-width;
+            height: Desktop.cell-height;
+            border-radius: 3px;
+            border-width: 1px;
+            border-color: #ffffff80;
+        }
+    }
+
+    // Focus the desktop's keyboard handling (after a click, or when the shell asks).
+    public function take-focus() {
+        focus.focus();
+    }
+}

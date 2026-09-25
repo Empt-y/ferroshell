@@ -4,6 +4,7 @@
 pub mod audio;
 pub mod bluetooth;
 pub mod calendar;
+pub mod desktop_icons;
 pub mod network;
 pub mod notifications;
 pub mod power;

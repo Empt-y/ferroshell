@@ -143,3 +143,43 @@ pub fn http_download(url: &str, to: &Path) -> anyhow::Result<()> {
     std::fs::rename(&tmp, to).with_context(|| format!("renaming to {}", to.display()))?;
     Ok(())
 }
+
+/// Windows' "Choose a fit" as `fill`, `fit`, `stretch`, `center`, `tile` or `span`.
+pub fn wallpaper_fit() -> &'static str {
+    let style = read_string(r"Control Panel\Desktop", "WallpaperStyle").and_then(|s| s.trim().parse::<u32>().ok()).unwrap_or(10);
+    let tile = read_string(r"Control Panel\Desktop", "TileWallpaper").is_some_and(|s| s.trim() == "1");
+    match (style, tile) {
+        (0, true) => "tile",
+        (0, false) => "center",
+        (2, _) => "stretch",
+        (6, _) => "fit",
+        (22, _) => "span",
+        _ => "fill",
+    }
+}
+
+/// The desktop background colour (behind the picture, or on its own).
+pub fn background_colour() -> (u8, u8, u8) {
+    read_string(r"Control Panel\Colors", "Background")
+        .and_then(|s| {
+            let v: Vec<u8> = s.split_whitespace().filter_map(|p| p.parse().ok()).collect();
+            (v.len() == 3).then(|| (v[0], v[1], v[2]))
+        })
+        .unwrap_or((0, 0, 0))
+}
+
+/// The picture on the desktop now: the wallpaper file, or Windows' converted copy of it.
+/// A copy without an extension (`TranscodedWallpaper`) is copied to `cache` with the right
+/// one, so image loaders accept it.
+pub fn current_picture(cache: &Path) -> Option<PathBuf> {
+    let current = crate::lockscreen::current_wallpaper()?;
+    if current.extension().is_some() {
+        return Some(current);
+    }
+    let bytes = std::fs::read(&current).ok()?;
+    let ext = if bytes.starts_with(&[0x89, b'P', b'N', b'G']) { "png" } else if bytes.starts_with(b"BM") { "bmp" } else { "jpg" };
+    std::fs::create_dir_all(cache).ok()?;
+    let copy = cache.join(format!("desktop-wallpaper.{ext}"));
+    std::fs::write(&copy, bytes).ok()?;
+    Some(copy)
+}

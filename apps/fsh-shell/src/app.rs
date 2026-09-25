@@ -108,6 +108,7 @@ pub struct App {
     pub(crate) shell_keys: crate::shellkeys::ShellKeys,
     pub(crate) lock_screen: crate::lockscreen::LockScreenSync,
     pub(crate) wallpaper: crate::wallpaper::WallpaperEngine,
+    pub(crate) desktop_icons: crate::desktop_icons::DesktopIcons,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
@@ -171,6 +172,7 @@ impl App {
             shell_keys: crate::shellkeys::ShellKeys::default(),
             lock_screen: crate::lockscreen::LockScreenSync::default(),
             wallpaper: crate::wallpaper::WallpaperEngine::default(),
+            desktop_icons: crate::desktop_icons::DesktopIcons::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -198,6 +200,10 @@ impl App {
         }
         app.load();
         app.rebuild_panels();
+        if replace {
+            // After the panels, which reserve their part of each monitor.
+            app.start_desktop_icons();
+        }
         app.sync_pinned();
         schedule_tick();
         if !safe_mode {
@@ -698,6 +704,7 @@ impl App {
             "shortcuts": self.shell_keys_state(),
             "lock_screen": self.lock_screen_state(),
             "wallpaper": self.wallpaper_state(),
+            "desktop_icons": self.desktop_icons_state(),
             "identity": fsh_win::identity::package_full_name(),
             "config_error": st.config.error(),
             "config_from_last_good": matches!(st.config, LoadOutcome::Fallback { from_last_good: true, .. }),
@@ -777,13 +784,19 @@ fn on_system_message(_hwnd: fsh_win::Hwnd, msg: u32, _wparam: usize, lparam: isi
             tracing::info!("display configuration changed");
             // Let Windows settle (several messages arrive while monitors reconfigure).
             slint::Timer::single_shot(Duration::from_millis(500), || {
-                with(|a| a.relayout());
+                with(|a| {
+                    a.relayout();
+                    a.build_desktop_surfaces(false);
+                });
             });
         }
         window::WM_SETTINGCHANGE if _wparam == fsh_win::lockscreen::SPI_SETDESKWALLPAPER => {
             // The wallpaper file may still be being written: give it a moment.
             slint::Timer::single_shot(Duration::from_millis(1500), || {
-                with(|a| a.sync_lock_screen());
+                with(|a| {
+                    a.sync_lock_screen();
+                    a.apply_desktop_wallpaper();
+                });
             });
         }
         window::WM_SETTINGCHANGE => match window::setting_change_area(lparam).as_deref() {

@@ -61,6 +61,8 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
             app::with(|a| a.wallpaper_tick(true));
             json!({"ok": true})
         }),
+        // Desktop icons in a normal window, to try them alongside Explorer (toggles).
+        "debug.desktop_preview" => on_ui(|| json!({ "shown": app::with(|a| a.toggle_desktop_preview()).unwrap_or(false) })),
         "shutdown" | "quit" => exit(exit_codes::QUIT),
         "restart" => exit(exit_codes::RESTART),
         "debug.crash" => {

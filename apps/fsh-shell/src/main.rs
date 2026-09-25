@@ -10,6 +10,7 @@ mod app_tray;
 mod banner;
 mod control;
 mod desktop;
+mod desktop_icons;
 mod launcher;
 mod lockscreen;
 mod notify;

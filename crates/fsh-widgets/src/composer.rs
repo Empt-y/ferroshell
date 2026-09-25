@@ -412,6 +412,9 @@ mod tests {
         let def = composer.compile_library("launcher.slint", "LauncherWindow").unwrap();
         assert!(def.globals().any(|g| g == "Launcher"));
         assert!(def.functions().any(|f| f == "focus-search"));
+        let def = composer.compile_library("desktop.slint", "DesktopWindow").unwrap_or_else(|e| panic!("desktop.slint: {e}"));
+        assert!(def.globals().any(|g| g == "Desktop"));
+        assert!(def.functions().any(|f| f == "take-focus"));
     }
 
     #[test]
