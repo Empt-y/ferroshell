@@ -350,3 +350,90 @@ export component MediaIcon inherits Rectangle {
             : "M6 3.5 L20 12 L6 20.5 Z";
     }
 }
+
+// Wi-Fi bars: `bars` (0-4) filled, the rest dim. `off` draws a slashed icon (radio disabled).
+export component WifiIcon inherits Rectangle {
+    in property <int> bars: 4;
+    in property <bool> off;
+    in property <color> tint: Theme.foreground;
+    in property <color> dim: Theme.foreground-dim;
+    width: 18px;
+    height: 18px;
+    for i in 4: Rectangle {
+        property <int> level: i + 1;
+        width: 3px;
+        height: 3px + i * 3.2px;
+        x: 1.5px + i * 4.3px;
+        y: 17px - self.height;
+        border-radius: 1px;
+        background: root.off ? root.dim.with-alpha(0.4) : self.level <= root.bars ? root.tint : root.dim.with-alpha(0.4);
+    }
+    if root.off: Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        stroke: root.tint;
+        stroke-width: 2px;
+        commands: "M2 2 L22 22";
+    }
+}
+
+// A wired-connection icon (a plug), dim when `off`.
+export component EthernetIcon inherits Rectangle {
+    in property <bool> off;
+    in property <color> tint: Theme.foreground;
+    width: 18px;
+    height: 18px;
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        stroke: root.off ? Theme.foreground-dim : root.tint;
+        stroke-width: 1.8px;
+        commands: "M8 2 L8 8 M16 2 L16 8 M5 8 L19 8 L19 13 A7 7 0 0 1 5 13 Z M12 20 L12 15";
+    }
+}
+
+// The airplane-mode icon.
+export component AirplaneIcon inherits Rectangle {
+    in property <color> tint: Theme.foreground;
+    width: 18px;
+    height: 18px;
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        fill: root.tint;
+        commands: "M21 15 L14 15 L14 21 L17 22 L17 23 L7 23 L7 22 L10 21 L10 15 L3 15 L3 12 L10 10 L10 3 A2 2 0 0 1 14 3 L14 10 L21 12 Z";
+    }
+}
+
+// A pill switch: on (accent) or off. Commits on click, unlike Slider — a switch has no
+// intermediate state to fight over with live data.
+export component Toggle inherits Rectangle {
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    callback toggled(bool);
+    width: 38px;
+    height: 22px;
+    border-radius: self.height / 2;
+    background: !root.enabled ? Theme.foreground-dim.with-alpha(0.2) : root.checked ? Theme.accent : Theme.foreground-dim.with-alpha(0.35);
+    opacity: root.enabled ? 1 : 0.6;
+    animate background { duration: 100ms; }
+    Rectangle {
+        width: 16px;
+        height: 16px;
+        x: root.checked ? parent.width - self.width - 3px : 3px;
+        y: (parent.height - self.height) / 2;
+        border-radius: self.width / 2;
+        background: white;
+        animate x { duration: 100ms; easing: ease-out; }
+    }
+    TouchArea {
+        enabled: root.enabled;
+        clicked => { root.toggled(!root.checked); }
+    }
+}

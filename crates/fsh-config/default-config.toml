@@ -27,6 +27,7 @@ widgets = [
     { id = "org.ferroshell.taskmanager" },
     { id = "org.ferroshell.systemtray" },
     { id = "org.ferroshell.volume" },
+    { id = "org.ferroshell.network" },
     { id = "org.ferroshell.clock", format = "%H:%M", date-format = "%d/%m/%Y" },
     { id = "org.ferroshell.show-desktop" },
 ]

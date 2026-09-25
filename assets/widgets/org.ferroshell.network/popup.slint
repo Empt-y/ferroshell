@@ -1,0 +1,174 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Network, WifiNetwork } from "@ferroshell/services.slint";
+import { Label, DimLabel, Heading, ListRow, IconButton, Toggle, WifiIcon, EthernetIcon, AirplaneIcon } from "@ferroshell/controls.slint";
+
+component SignalIcon inherits WifiIcon {
+    width: 16px;
+    height: 16px;
+}
+
+// One network in the list. Expands into a password box when clicked, if it needs one.
+component NetworkRow inherits Rectangle {
+    in property <WifiNetwork> net;
+    property <bool> expanded;
+    property <bool> connecting;
+
+    VerticalLayout {
+        ListRow {
+            selected: root.net.connected;
+            clicked => {
+                if root.net.needs-password {
+                    root.expanded = !root.expanded;
+                } else {
+                    root.connecting = true;
+                    Network.connect(root.net.ssid);
+                }
+            }
+            SignalIcon { y: (parent.height - self.height) / 2; bars: root.net.bars; }
+            VerticalLayout {
+                alignment: center;
+                Label { text: root.net.ssid == "" ? "(hidden network)" : root.net.ssid; }
+                DimLabel {
+                    text: root.net.connected ? "Connected — " + root.net.security : root.net.security;
+                }
+            }
+            if root.net.needs-password: Text {
+                text: root.expanded ? "︿" : "﹀";
+                color: Theme.foreground-dim;
+                vertical-alignment: center;
+            }
+            if root.net.connected: IconButton {
+                tooltip: "Disconnect";
+                clicked => { Network.disconnect(); }
+                Text { text: "✕"; color: Theme.foreground-dim; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+            }
+        }
+        if root.expanded: HorizontalLayout {
+            padding-left: 40px;
+            padding-right: 10px;
+            padding-bottom: 8px;
+            spacing: 6px;
+            box := Rectangle {
+                height: 30px;
+                border-radius: Theme.radius;
+                background: Theme.hover;
+                border-width: 1px;
+                border-color: pw.has-focus ? Theme.accent : Theme.panel-border;
+                horizontal-stretch: 1;
+                pw := TextInput {
+                    x: 8px;
+                    width: parent.width - 16px;
+                    input-type: InputType.password;
+                    single-line: true;
+                    color: Theme.foreground;
+                    font-size: Theme.font-size;
+                    vertical-alignment: center;
+                    accepted => { Network.connect-new(root.net.ssid, self.text); }
+                }
+            }
+            IconButton {
+                width: 30px;
+                height: 30px;
+                tooltip: "Connect";
+                clicked => { Network.connect-new(root.net.ssid, pw.text); }
+                Text { text: "→"; color: Theme.accent; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+            }
+        }
+    }
+}
+
+export component Popup inherits Rectangle {
+    in property <string> instance-id;
+
+    if !Network.available: Label {
+        text: "Networking is unavailable.";
+        horizontal-alignment: center;
+    }
+
+    if Network.available: Flickable {
+        viewport-height: content.preferred-height;
+        content := VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+
+            // Status line.
+            HorizontalLayout {
+                spacing: 8px;
+                if Network.airplane-mode: AirplaneIcon {}
+                if !Network.airplane-mode && Network.kind == "ethernet": EthernetIcon {}
+                if !Network.airplane-mode && Network.kind != "ethernet": WifiIcon { bars: Network.bars; off: Network.kind != "wifi"; }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Label {
+                        font-weight: 600;
+                        text: Network.airplane-mode ? "Airplane mode"
+                            : Network.kind == "wifi" ? Network.ssid
+                            : Network.kind == "ethernet" ? "Ethernet"
+                            : "Not connected";
+                    }
+                    DimLabel {
+                        text: !Network.connected ? "No connectivity" : Network.limited ? "Limited connectivity" : "Connected";
+                    }
+                }
+            }
+
+            if Network.error != "": Text {
+                text: Network.error;
+                color: Theme.error;
+                font-size: Theme.font-size * 0.9;
+                wrap: word-wrap;
+            }
+
+            // Toggles.
+            HorizontalLayout {
+                Label { text: "Airplane mode"; vertical-alignment: center; horizontal-stretch: 1; }
+                Toggle { checked: Network.airplane-mode; toggled(v) => { Network.set-airplane-mode(v); } }
+            }
+            if Network.wifi-present: HorizontalLayout {
+                Label { text: "Wi-Fi"; vertical-alignment: center; horizontal-stretch: 1; }
+                Toggle {
+                    checked: Network.wifi-enabled;
+                    enabled: !Network.airplane-mode;
+                    toggled(v) => { Network.set-wifi-enabled(v); }
+                }
+            }
+
+            // Networks.
+            if Network.wifi-present && Network.wifi-enabled && !Network.airplane-mode: VerticalLayout {
+                spacing: 4px;
+                HorizontalLayout {
+                    Heading { text: "Networks"; vertical-stretch: 1; }
+                    IconButton {
+                        width: 26px;
+                        height: 26px;
+                        tooltip: "Scan again";
+                        clicked => { Network.scan(); }
+                        Text { text: "⟳"; color: Theme.foreground-dim; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                    }
+                }
+                if Network.networks.length == 0: DimLabel { text: "Scanning…"; }
+                for net in Network.networks: NetworkRow { net: net; }
+            }
+
+            // VPNs.
+            if Network.vpns.length > 0: VerticalLayout {
+                spacing: 4px;
+                Heading { text: "VPN"; }
+                for vpn in Network.vpns: ListRow {
+                    Label { text: vpn.name; horizontal-stretch: 1; vertical-alignment: center; }
+                    IconButton {
+                        tooltip: "Disconnect";
+                        clicked => { Network.vpn-disconnect(vpn.name); }
+                        Text { text: "✕"; color: Theme.foreground-dim; x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2; }
+                    }
+                }
+            }
+
+            ListRow {
+                clicked => { Shell.invoke("launch", "ms-settings:network"); Shell.invoke("close-popup", ""); }
+                Label { text: "Network settings…"; color: Theme.accent; }
+            }
+        }
+    }
+}

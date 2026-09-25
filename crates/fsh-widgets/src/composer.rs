@@ -53,7 +53,7 @@ pub const PANEL_COMPONENT: &str = "Panel";
 pub const POPUP_COMPONENT: &str = "PopupWindow";
 /// The globals in `@ferroshell/services.slint`, exported from every panel and popup so
 /// the shell can set them.
-pub const SERVICE_GLOBALS: &str = "Audio, Media";
+pub const SERVICE_GLOBALS: &str = "Audio, Media, Network";
 
 impl Composer {
     pub fn new(layout: Layout) -> Self {

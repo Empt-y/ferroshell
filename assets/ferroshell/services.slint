@@ -80,3 +80,56 @@ export global Media {
     callback next();
     callback previous();
 }
+
+// A Wi-Fi network from the last scan, or the one currently connected.
+export struct WifiNetwork {
+    ssid: string,
+    // "Open", "WPA2-Personal", ...
+    security: string,
+    // A password is needed and no profile is saved for it yet.
+    needs-password: bool,
+    // 0-4
+    bars: int,
+    connected: bool,
+    // A profile is already saved: connecting doesn't need a password.
+    saved: bool,
+}
+
+// An active VPN (RAS) connection.
+export struct VpnConnection {
+    name: string,
+}
+
+// Service "network": Wi-Fi, Ethernet, overall connectivity, airplane mode and VPN status.
+export global Network {
+    in property <bool> available;
+    // Wi-Fi hardware exists on this machine.
+    in property <bool> wifi-present;
+    in property <bool> wifi-enabled;
+    in property <bool> airplane-mode;
+    // Has some connectivity (even if only local/limited).
+    in property <bool> connected;
+    // Connected, but without full internet access.
+    in property <bool> limited;
+    // "wifi", "ethernet" or "none": the primary connection right now.
+    in property <string> kind;
+    in property <string> ssid;
+    // 0-4, only meaningful while `kind == "wifi"`.
+    in property <int> bars;
+    in property <string> ethernet-name;
+    in property <[WifiNetwork]> networks;
+    in property <[VpnConnection]> vpns;
+    // The last connect/forget attempt's error, if any ("" otherwise).
+    in property <string> error;
+
+    callback scan();
+    // A saved (or open, unsaved) network.
+    callback connect(/* ssid */ string);
+    // An unsaved network that needs a password.
+    callback connect-new(/* ssid */ string, /* password */ string);
+    callback disconnect();
+    callback forget(/* ssid */ string);
+    callback set-wifi-enabled(bool);
+    callback set-airplane-mode(bool);
+    callback vpn-disconnect(/* name */ string);
+}

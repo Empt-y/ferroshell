@@ -15,6 +15,7 @@ pub mod keyhook;
 pub mod media;
 pub mod menu;
 pub mod monitor;
+pub mod network;
 pub mod panel;
 pub mod process;
 pub mod session;

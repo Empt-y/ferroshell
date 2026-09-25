@@ -7,6 +7,7 @@
 
 pub mod audio;
 pub mod media;
+pub mod network;
 
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
@@ -24,14 +25,17 @@ pub enum Update {
     Audio(audio::Snapshot),
     AppIcons(Vec<(String, RgbaImage)>),
     Media(media::Snapshot),
+    Network(network::Snapshot),
 }
 
 #[derive(Default)]
 pub struct Services {
     audio: RefCell<Option<audio::AudioService>>,
     media: RefCell<Option<media::MediaService>>,
+    network: RefCell<Option<network::NetworkService>>,
     audio_state: RefCell<audio::Snapshot>,
     media_state: RefCell<media::Snapshot>,
+    network_state: RefCell<network::Snapshot>,
     art: RefCell<Option<Image>>,
     icons: RefCell<HashMap<String, Image>>,
     // Shared by every instance and updated in place, so a slider being dragged in a list
@@ -39,6 +43,8 @@ pub struct Services {
     outputs: Rc<VecModel<Value>>,
     inputs: Rc<VecModel<Value>>,
     apps: Rc<VecModel<Value>>,
+    networks: Rc<VecModel<Value>>,
+    vpns: Rc<VecModel<Value>>,
 }
 
 type GlobalCallback = Box<dyn Fn(&[Value]) -> Value>;
@@ -132,7 +138,17 @@ impl App {
             drop(s.media.borrow_mut().take());
             self.on_service_update(Update::Media(media::Snapshot::default()));
         }
-        for unknown in wanted.iter().filter(|w| !["audio", "media"].contains(&w.as_str())) {
+        let running = s.network.borrow().is_some();
+        if wanted.contains("network") && !running {
+            match network::NetworkService::spawn(post) {
+                Ok(svc) => *s.network.borrow_mut() = Some(svc),
+                Err(e) => tracing::error!("could not start the network service: {e:#}"),
+            }
+        } else if !wanted.contains("network") && running {
+            drop(s.network.borrow_mut().take());
+            self.on_service_update(Update::Network(network::Snapshot::default()));
+        }
+        for unknown in wanted.iter().filter(|w| !["audio", "media", "network"].contains(&w.as_str())) {
             tracing::warn!("a widget asks for unknown service `{unknown}`");
         }
     }
@@ -147,6 +163,13 @@ impl App {
     pub(crate) fn media_cmd(&self, c: Control) {
         if let Some(m) = self.services.media.borrow().as_ref() {
             m.send(c);
+        }
+    }
+
+    fn network_cmd(&self, cmd: network::Cmd) {
+        tracing::debug!("network: {cmd:?}");
+        if let Some(n) = self.services.network.borrow().as_ref() {
+            n.send(cmd);
         }
     }
 
@@ -177,6 +200,21 @@ impl App {
                 Value::Void
             }));
         }
+        let net = |name: &str, f: fn(&[Value]) -> network::Cmd| {
+            cb("Network", name, Box::new(move |a| {
+                let cmd = f(a);
+                with(|app| app.network_cmd(cmd));
+                Value::Void
+            }));
+        };
+        net("scan", |_| network::Cmd::Scan);
+        net("connect", |a| network::Cmd::Connect(text(a, 0)));
+        net("connect-new", |a| network::Cmd::ConnectNew { ssid: text(a, 0), password: text(a, 1) });
+        net("disconnect", |_| network::Cmd::Disconnect);
+        net("forget", |a| network::Cmd::Forget(text(a, 0)));
+        net("set-wifi-enabled", |a| network::Cmd::SetWifiEnabled(flag(a, 0)));
+        net("set-airplane-mode", |a| network::Cmd::SetAirplaneMode(flag(a, 0)));
+        net("vpn-disconnect", |a| network::Cmd::VpnDisconnect(text(a, 0)));
         let s = &self.services;
         let set = |global: &str, name: &str, v: Value| {
             if let Err(e) = instance.set_global_property(global, name, v) {
@@ -186,8 +224,11 @@ impl App {
         set("Audio", "outputs", Value::Model(ModelRc::from(s.outputs.clone())));
         set("Audio", "inputs", Value::Model(ModelRc::from(s.inputs.clone())));
         set("Audio", "apps", Value::Model(ModelRc::from(s.apps.clone())));
+        set("Network", "networks", Value::Model(ModelRc::from(s.networks.clone())));
+        set("Network", "vpns", Value::Model(ModelRc::from(s.vpns.clone())));
         self.apply_audio(instance);
         self.apply_media(instance);
+        self.apply_network(instance);
     }
 
     /// Every instance showing service data: panels and compiled popups.
@@ -223,6 +264,27 @@ impl App {
                 *s.art.borrow_mut() = art;
                 *s.media_state.borrow_mut() = snap;
                 self.for_each_instance(&|i| self.apply_media(i));
+            }
+            Update::Network(snap) => {
+                let network_rows = snap
+                    .networks
+                    .iter()
+                    .map(|n| {
+                        strukt(vec![
+                            ("ssid", Value::String(n.ssid.as_str().into())),
+                            ("security", Value::String(n.security.as_str().into())),
+                            ("needs-password", Value::Bool(n.needs_password)),
+                            ("bars", Value::Number(f64::from(n.bars))),
+                            ("connected", Value::Bool(n.connected)),
+                            ("saved", Value::Bool(n.saved)),
+                        ])
+                    })
+                    .collect();
+                let vpn_rows = snap.vpns.iter().map(|v| strukt(vec![("name", Value::String(v.name.as_str().into()))])).collect();
+                sync_model(&s.networks, network_rows);
+                sync_model(&s.vpns, vpn_rows);
+                *s.network_state.borrow_mut() = snap;
+                self.for_each_instance(&|i| self.apply_network(i));
             }
         }
     }
@@ -300,11 +362,37 @@ impl App {
         set("can-previous", Value::Bool(now.can_previous));
     }
 
+    fn apply_network(&self, i: &ComponentInstance) {
+        let st = self.services.network_state.borrow();
+        let set = |name: &str, v: Value| {
+            let _ = i.set_global_property("Network", name, v);
+        };
+        set("available", Value::Bool(st.available));
+        set("wifi-present", Value::Bool(st.wifi_present));
+        set("wifi-enabled", Value::Bool(st.wifi_enabled));
+        set("airplane-mode", Value::Bool(st.airplane_mode));
+        set("connected", Value::Bool(st.connected));
+        set("limited", Value::Bool(st.limited));
+        set(
+            "kind",
+            Value::String(match st.kind {
+                network::Kind::Wifi => "wifi",
+                network::Kind::Ethernet => "ethernet",
+                network::Kind::None => "none",
+            }.into()),
+        );
+        set("ssid", Value::String(st.ssid.as_str().into()));
+        set("bars", Value::Number(f64::from(st.bars)));
+        set("ethernet-name", Value::String(st.ethernet_name.as_str().into()));
+        set("error", Value::String(st.error.as_str().into()));
+    }
+
     /// For `fsh-ctl shell dump_state`.
     pub(crate) fn services_state(&self) -> serde_json::Value {
         let s = &self.services;
         let a = s.audio_state.borrow();
         let m = s.media_state.borrow();
+        let n = s.network_state.borrow();
         serde_json::json!({
             "audio": {
                 "running": s.audio.borrow().is_some(),
@@ -324,6 +412,22 @@ impl App {
                 "app": m.now.as_ref().map(|n| &n.app_id),
                 "playing": m.now.as_ref().is_some_and(|n| n.playing),
                 "art": m.art.is_some(),
+            },
+            "network": {
+                "running": s.network.borrow().is_some(),
+                "available": n.available,
+                "wifi_present": n.wifi_present,
+                "wifi_enabled": n.wifi_enabled,
+                "airplane_mode": n.airplane_mode,
+                "connected": n.connected,
+                "limited": n.limited,
+                "kind": match n.kind { network::Kind::Wifi => "wifi", network::Kind::Ethernet => "ethernet", network::Kind::None => "none" },
+                "ssid": n.ssid,
+                "bars": n.bars,
+                "ethernet": n.ethernet_name,
+                "networks": n.networks.iter().map(|w| serde_json::json!({"ssid": w.ssid, "security": w.security, "bars": w.bars, "connected": w.connected, "saved": w.saved})).collect::<Vec<_>>(),
+                "vpns": n.vpns.iter().map(|v| &v.name).collect::<Vec<_>>(),
+                "error": n.error,
             },
         })
     }

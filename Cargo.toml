@@ -38,8 +38,10 @@ windows-core = "0.62"
 [workspace.dependencies.windows]
 version = "0.62"
 features = [
+    "Devices_Radios",
     "Foundation",
     "Media_Control",
+    "Networking_Connectivity",
     "Storage_Streams",
     "Win32_Devices_FunctionDiscovery",
     "Win32_Foundation",
@@ -47,6 +49,11 @@ features = [
     "Win32_Graphics_Gdi",
     "Win32_Media_Audio",
     "Win32_Media_Audio_Endpoints",
+    "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+    "Win32_NetworkManagement_Rras",
+    "Win32_NetworkManagement_WiFi",
+    "Win32_Networking_WinSock",
     "Win32_Security",
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Authorization",

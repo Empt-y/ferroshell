@@ -1,0 +1,45 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Network } from "@ferroshell/services.slint";
+import { PanelButton, Label, WifiIcon, EthernetIcon, AirplaneIcon } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+    in property <bool> show-label: false;
+
+    horizontal-stretch: 0;
+    content-padding: 6px;
+    opacity: Network.available ? 1 : 0.5;
+    accessible-role: button;
+    accessible-label: Network.kind == "wifi" ? "Wi-Fi: " + Network.ssid
+        : Network.kind == "ethernet" ? "Ethernet"
+        : Network.airplane-mode ? "Airplane mode"
+        : "Not connected";
+
+    clicked => {
+        Shell.invoke("popup", root.instance-id + "|" + (self.absolute-position.x / 1px) + "," + (self.absolute-position.y / 1px)
+            + "," + (self.width / 1px) + "," + (self.height / 1px));
+    }
+
+    if Network.airplane-mode: AirplaneIcon {
+        width: Theme.icon-size * 0.8;
+        height: self.width;
+    }
+    if !Network.airplane-mode && Network.kind == "ethernet": EthernetIcon {
+        width: Theme.icon-size * 0.8;
+        height: self.width;
+    }
+    if !Network.airplane-mode && Network.kind != "ethernet": WifiIcon {
+        bars: Network.bars;
+        off: Network.kind != "wifi";
+        width: Theme.icon-size * 0.8;
+        height: self.width;
+    }
+    if root.show-label && !Shell.vertical: Label {
+        text: Network.airplane-mode ? "Airplane mode"
+            : Network.kind == "wifi" ? Network.ssid
+            : Network.kind == "ethernet" ? "Ethernet"
+            : "Disconnected";
+        max-width: 120px;
+        overflow: elide;
+    }
+}

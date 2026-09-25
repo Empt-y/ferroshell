@@ -3,6 +3,7 @@
 
 pub mod audio;
 pub mod calendar;
+pub mod network;
 pub mod geometry;
 pub mod launcher;
 pub mod tasks;

@@ -1,0 +1,17 @@
+id = "org.ferroshell.network"
+name = "Network"
+description = "Wi-Fi, Ethernet, VPN status and airplane mode."
+version = "1.0.0"
+api = 1
+services = ["network"]
+
+[popup]
+file = "popup.slint"
+width = 340
+height = 460
+
+[config.show-label]
+type = "bool"
+default = false
+label = "Show a text label on the panel"
+description = "e.g. the SSID or \"Ethernet\", when the panel is thick enough."
