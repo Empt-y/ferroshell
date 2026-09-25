@@ -155,7 +155,7 @@ fn launch(p: &Planned) -> Result<(), String> {
     }
     let started = match &p.launch {
         Launch::Command(cmd) => win::run_command_line(cmd).map(drop),
-        Launch::Open(target) => fsh_win::winops::launch(target, None),
+        Launch::Open(target) => fsh_win::winops::launch_quiet(target),
     };
     started.map_err(|e| format!("{e:#}"))?;
     if let Some((hive, name, flags)) = &p.run_once

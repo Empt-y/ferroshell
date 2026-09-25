@@ -4,11 +4,12 @@
 use windows::Win32::Foundation::{LPARAM, WPARAM};
 use windows::Win32::Storage::EnhancedStorage::PKEY_AppUserModel_ID;
 use windows::Win32::System::Com::StructuredStorage::PropVariantToStringAlloc;
-use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CoCreateInstance, CoTaskMemFree, IPersistFile, STGM_READ};
+use windows::Win32::System::Com::{CLSCTX_INPROC_SERVER, CLSCTX_LOCAL_SERVER, CoCreateInstance, CoTaskMemFree, IPersistFile, STGM_READ};
 use windows::Win32::System::Threading::{AttachThreadInput, GetCurrentThreadId};
 use windows::Win32::UI::Shell::PropertiesSystem::IPropertyStore;
 use windows::Win32::UI::Shell::{
-    IShellItem, IShellLinkW, SEE_MASK_NOASYNC, SHCreateItemFromParsingName, SHELLEXECUTEINFOW, SIGDN_NORMALDISPLAY,
+    AO_NONE, ApplicationActivationManager, IApplicationActivationManager, IShellItem, IShellLinkW,
+    SEE_MASK_FLAG_NO_UI, SEE_MASK_NOASYNC, SHCreateItemFromParsingName, SHELLEXECUTEINFOW, SIGDN_NORMALDISPLAY,
     ShellExecuteExW, ShellLink,
 };
 use windows::Win32::UI::WindowsAndMessaging::{
@@ -74,12 +75,52 @@ pub fn launch(target: &str, args: Option<&str>) -> anyhow::Result<()> {
 
 /// [`launch`] with a shell verb, e.g. `runas` (run as administrator).
 pub fn launch_verb(target: &str, args: Option<&str>, verb: &str) -> anyhow::Result<()> {
+    shell_execute(target, args, verb, false)
+}
+
+/// [`launch`] that never shows Windows' error dialog (for launches nobody asked for
+/// interactively, e.g. startup apps); failures are only returned.
+pub fn launch_quiet(target: &str) -> anyhow::Result<()> {
+    shell_execute(target, None, "open", true)
+}
+
+/// The app id in `shell:AppsFolder\<id>` when it names a packaged (Store/MSIX) app,
+/// i.e. `<family name>!<app id>`.
+pub fn packaged_aumid(target: &str) -> Option<&str> {
+    let rest = target.get(..17).filter(|p| p.eq_ignore_ascii_case("shell:AppsFolder\\")).map(|_| &target[17..])?;
+    (rest.contains('!') && !rest.contains('\\')).then_some(rest)
+}
+
+/// Starts a packaged app by its app user model id, the way Start does. Unlike opening
+/// `shell:AppsFolder\<id>`, this works without Explorer. Needs COM on the thread.
+pub fn activate_app(aumid: &str, args: Option<&str>) -> anyhow::Result<u32> {
+    let manager: IApplicationActivationManager =
+        unsafe { CoCreateInstance(&ApplicationActivationManager, None, CLSCTX_LOCAL_SERVER) }
+            .map_err(|e| anyhow::anyhow!("ApplicationActivationManager: {e}"))?;
+    let id = wide(aumid);
+    let args_w = args.map(wide);
+    unsafe {
+        manager.ActivateApplication(
+            PCWSTR(id.as_ptr()),
+            args_w.as_ref().map_or(PCWSTR::null(), |a| PCWSTR(a.as_ptr())),
+            AO_NONE,
+        )
+    }
+    .map_err(|e| anyhow::anyhow!("starting {aumid}: {e}"))
+}
+
+fn shell_execute(target: &str, args: Option<&str>, verb: &str, quiet: bool) -> anyhow::Result<()> {
+    if verb == "open"
+        && let Some(aumid) = packaged_aumid(target)
+    {
+        return activate_app(aumid, args).map(drop);
+    }
     let target_w = wide(target);
     let args_w = args.map(wide);
     let verb = wide(verb);
     let mut info = SHELLEXECUTEINFOW {
         cbSize: size_of::<SHELLEXECUTEINFOW>() as u32,
-        fMask: SEE_MASK_NOASYNC,
+        fMask: if quiet { SEE_MASK_NOASYNC | SEE_MASK_FLAG_NO_UI } else { SEE_MASK_NOASYNC },
         lpVerb: PCWSTR(verb.as_ptr()),
         lpFile: PCWSTR(target_w.as_ptr()),
         lpParameters: args_w.as_ref().map_or(PCWSTR::null(), |a| PCWSTR(a.as_ptr())),
@@ -132,5 +173,19 @@ pub fn display_name(parsing_name: &str) -> Option<String> {
         let out = name.to_string().ok();
         CoTaskMemFree(Some(name.0 as *const _));
         out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recognises_packaged_app_ids() {
+        assert_eq!(packaged_aumid(r"shell:AppsFolder\SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify"), Some("SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify"));
+        assert_eq!(packaged_aumid(r"SHELL:appsfolder\Pkg_abc!App"), Some("Pkg_abc!App"));
+        assert_eq!(packaged_aumid(r"shell:AppsFolder\Microsoft.Windows.Explorer"), None, "desktop app ids have no !");
+        assert_eq!(packaged_aumid(r"C:\x!y.exe"), None);
+        assert_eq!(packaged_aumid("shell:Desktop"), None);
     }
 }

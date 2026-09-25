@@ -366,7 +366,11 @@ impl App {
         }
         tracing::error!("{why}; exiting so the supervisor can recover");
         self.exit_code.set(1);
-        let _ = slint::quit_event_loop();
+        // Deferred: at start-up the event loop isn't running yet, and quitting it now
+        // would be ignored (leaving a shell with no panels).
+        slint::Timer::single_shot(Duration::ZERO, || {
+            let _ = slint::quit_event_loop();
+        });
     }
 
     fn schedule_relayout(&self) {
