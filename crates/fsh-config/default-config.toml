@@ -48,3 +48,14 @@ power-actions = ["lock", "sleep", "restart", "shutdown", "logout"]
 favourites = []
 # Optional web search as the last result, e.g. "https://duckduckgo.com/?q={}".
 web-search = ""
+# Only used when Ferroshell is your login shell (packaging/shell/enable-login-shell.ps1).
+[session]
+# Start the apps Windows starts at sign-in (Run keys, Startup folders), honouring the
+# ones you've turned off in Task Manager's Startup apps.
+startup-apps = true
+# Also start Store apps' startup tasks (e.g. Windows Terminal, Spotify).
+startup-tasks = true
+# Seconds to wait after the desktop is up.
+startup-delay = 2
+# Names to skip: a Run entry, a Startup-folder file, or a package family name.
+startup-exclude = []

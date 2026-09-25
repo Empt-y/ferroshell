@@ -24,6 +24,7 @@ toml = { version = "1", features = ["preserve_order"] }
 toml_edit = "0.25"
 include_dir = "0.7"
 chrono = "0.4"
+roxmltree = "0.20"
 
 anyhow = "1"
 thiserror = "2"
@@ -46,6 +47,7 @@ features = [
     "Data_Xml_Dom",
     "Devices_Radios",
     "Foundation",
+    "Management_Deployment",
     "Media_Control",
     "Networking_Connectivity",
     "Storage_Streams",
@@ -76,6 +78,7 @@ features = [
     "Win32_System_Console",
     "Win32_System_DataExchange",
     "Win32_System_Diagnostics_Debug",
+    "Win32_System_Environment",
     "Win32_System_ErrorReporting",
     "Win32_System_JobObjects",
     "Win32_System_Kernel",

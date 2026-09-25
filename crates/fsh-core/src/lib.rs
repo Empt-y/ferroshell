@@ -8,6 +8,7 @@ pub mod network;
 pub mod notifications;
 pub mod power;
 pub mod session;
+pub mod startup;
 pub mod geometry;
 pub mod launcher;
 pub mod tasks;

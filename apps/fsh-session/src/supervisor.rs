@@ -68,6 +68,8 @@ pub struct Supervisor {
     ending: AtomicBool,
     /// Which shell-ready events were signalled (replace mode).
     shell_ready: Arc<Mutex<Vec<&'static str>>>,
+    /// The startup-apps run's summary (replace mode), once it has happened.
+    startup: Arc<Mutex<Value>>,
 }
 
 impl Supervisor {
@@ -90,6 +92,7 @@ impl Supervisor {
             cv: Condvar::new(),
             ending: AtomicBool::new(false),
             shell_ready: Arc::default(),
+            startup: Arc::new(Mutex::new(Value::Null)),
         }
     }
 
@@ -191,6 +194,7 @@ impl Supervisor {
             "replace_mode": self.opts.replace,
             "shell_ready_signalled": *self.shell_ready.lock().unwrap_or_else(|e| e.into_inner()),
             "session_ending": self.ending.load(Ordering::SeqCst),
+            "startup_apps": self.startup.lock().unwrap_or_else(|e| e.into_inner()).clone(),
             "emergency_hotkey": self.hotkey.lock().ok().and_then(|h| *h),
         })
     }
@@ -284,7 +288,7 @@ impl Supervisor {
                     if g.policy.safe_mode { " in SAFE MODE" } else { "" }
                 );
                 if self.opts.replace {
-                    signal_ready_when_up(self.shell_ready.clone());
+                    signal_ready_when_up(self.shell_ready.clone(), self.startup.clone());
                 }
                 g.child = Some(child);
                 g.child_started = Some(Instant::now());
@@ -379,8 +383,9 @@ impl Supervisor {
 }
 
 /// Once the shell answers a ping (or after 10 s regardless), tell Windows the desktop is
-/// ready so the sign-in screen goes away. Runs on its own thread; never blocks supervision.
-fn signal_ready_when_up(record: Arc<Mutex<Vec<&'static str>>>) {
+/// ready so the sign-in screen goes away, then start the startup apps (once per sign-in).
+/// Runs on its own thread; never blocks supervision.
+fn signal_ready_when_up(record: Arc<Mutex<Vec<&'static str>>>, startup: Arc<Mutex<Value>>) {
     let spawned = std::thread::Builder::new().name("shell-ready".into()).spawn(move || {
         let deadline = Instant::now() + Duration::from_secs(10);
         while Instant::now() < deadline {
@@ -392,6 +397,10 @@ fn signal_ready_when_up(record: Arc<Mutex<Vec<&'static str>>>) {
         let signalled = fsh_win::session::signal_shell_ready();
         tracing::info!("shell ready; signalled {signalled:?}");
         *record.lock().unwrap_or_else(|e| e.into_inner()) = signalled;
+        let summary = crate::startup::run_once_per_sign_in();
+        if summary["ran"] == true || startup.lock().unwrap_or_else(|e| e.into_inner()).is_null() {
+            *startup.lock().unwrap_or_else(|e| e.into_inner()) = summary;
+        }
     });
     if let Err(e) = spawned {
         tracing::warn!("could not start the shell-ready thread: {e}");

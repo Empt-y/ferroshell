@@ -7,6 +7,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod policy;
+mod startup;
 mod supervisor;
 mod watchdog;
 
@@ -33,7 +34,8 @@ const USAGE: &str = "\
 fsh-session [options]
   --safe-mode             start the shell in safe mode
   --keep-explorer-taskbar don't hide Explorer's taskbar (side-by-side debugging)
-  --replace               running as the Winlogon shell: fall back to launching Explorer";
+  --replace               running as the Winlogon shell: start startup apps, fall back to Explorer
+  --list-startup          print what would start at sign-in as the login shell (starts nothing)";
 
 fn main() -> ExitCode {
     let _log = match fsh_common::init_logging("session") {
@@ -58,6 +60,10 @@ fn main() -> ExitCode {
             "--safe-mode" => opts.safe_mode = true,
             "--keep-explorer-taskbar" => opts.hide_explorer_taskbar = false,
             fsh_common::REPLACE_FLAG => opts.replace = true,
+            "--list-startup" => {
+                println!("{}", serde_json::to_string_pretty(&startup::dry_run()).unwrap_or_default());
+                return ExitCode::SUCCESS;
+            }
             "-h" | "--help" => {
                 println!("{USAGE}");
                 return ExitCode::SUCCESS;

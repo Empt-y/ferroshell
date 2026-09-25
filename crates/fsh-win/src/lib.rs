@@ -25,6 +25,7 @@ pub mod power;
 pub mod process;
 pub mod session;
 pub mod shellhook;
+pub mod startup;
 pub mod system;
 pub mod taskbar;
 pub mod thumbnail;

@@ -19,6 +19,29 @@ pub struct Config {
     pub panels: Vec<PanelConfig>,
     #[serde(default)]
     pub launcher: LauncherConfig,
+    #[serde(default)]
+    pub session: SessionConfig,
+}
+
+/// Sign-in behaviour when Ferroshell is the login shell (`fsh-session --replace`).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "kebab-case", default)]
+pub struct SessionConfig {
+    /// Start the apps Windows would (Run/RunOnce keys, Startup folders), as Explorer does.
+    pub startup_apps: bool,
+    /// Also start Store/packaged apps' startup tasks (Terminal, Spotify, ...).
+    pub startup_tasks: bool,
+    /// Seconds to wait after the desktop is up before starting them.
+    pub startup_delay: u32,
+    /// Names to skip: a Run value name, a Startup-folder file name, or a package family
+    /// name, matched case-insensitively.
+    pub startup_exclude: Vec<String>,
+}
+
+impl Default for SessionConfig {
+    fn default() -> Self {
+        Self { startup_apps: true, startup_tasks: true, startup_delay: 2, startup_exclude: vec![] }
+    }
 }
 
 /// The application launcher (start menu).
@@ -173,6 +196,7 @@ impl Config {
             theme: default_theme(),
             panels: vec![],
             launcher: LauncherConfig::default(),
+            session: SessionConfig::default(),
         })
     }
 
