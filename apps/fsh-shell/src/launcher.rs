@@ -659,6 +659,9 @@ impl App {
         let in_recent = self.launcher.state.borrow().history.entries.contains_key(&id);
         let location = app.as_ref().and_then(|a| a.path.clone());
         let packaged = id.contains('!') && !id.contains('\\');
+        // Desktop apps, packaged ones included (Windows Terminal), can run elevated; UWP
+        // apps can't. Without the index's answer, guess from the id.
+        let elevatable = app.as_ref().and_then(|a| a.elevatable).unwrap_or(!packaged);
 
         const FAV: u32 = 1;
         const PIN: u32 = 2;
@@ -671,7 +674,7 @@ impl App {
         if location.is_some() {
             items.push(MenuItem::new(LOCATION, "Open file location"));
         }
-        if !packaged {
+        if elevatable {
             items.push(MenuItem::new(ADMIN, "Run as administrator"));
         }
         if in_recent {

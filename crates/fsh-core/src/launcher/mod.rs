@@ -25,6 +25,10 @@ pub struct AppEntry {
     /// Shortcut or executable path, if known (for "Open file location").
     #[serde(default)]
     pub path: Option<String>,
+    /// Can be started elevated: desktop apps, packaged or not (Windows Terminal), but not
+    /// UWP apps. `None` when unknown (e.g. an index cached by an older version).
+    #[serde(default)]
+    pub elevatable: Option<bool>,
 }
 
 impl AppEntry {
@@ -287,7 +291,7 @@ mod tests {
     use super::*;
 
     fn app(id: &str, name: &str, cat: &str, kw: &[&str]) -> AppEntry {
-        AppEntry { id: id.into(), name: name.into(), keywords: kw.iter().map(|s| (*s).to_owned()).collect(), category: cat.into(), path: None }
+        AppEntry { id: id.into(), name: name.into(), keywords: kw.iter().map(|s| (*s).to_owned()).collect(), category: cat.into(), path: None, elevatable: None }
     }
 
     fn apps() -> Vec<AppEntry> {

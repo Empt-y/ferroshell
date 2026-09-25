@@ -169,6 +169,7 @@ fn wanted(app: &ShellApp) -> bool {
 }
 
 fn to_entry(app: ShellApp, folders: &HashMap<String, (String, PathBuf)>) -> AppEntry {
+    let elevatable = app.elevatable();
     let id = app.parsing_name;
     let packaged = id.contains('!') && !id.contains('\\');
     let mut keywords = Vec::new();
@@ -199,7 +200,7 @@ fn to_entry(app: ShellApp, folders: &HashMap<String, (String, PathBuf)>) -> AppE
             }
         }
     }
-    AppEntry { id, name: app.name, keywords, category, path }
+    AppEntry { id, name: app.name, keywords, category, path, elevatable }
 }
 
 fn index() -> anyhow::Result<Vec<AppEntry>> {
@@ -220,7 +221,7 @@ mod tests {
     use super::*;
 
     fn app(name: &str, id: &str) -> ShellApp {
-        ShellApp { name: name.into(), parsing_name: id.into() }
+        ShellApp { name: name.into(), parsing_name: id.into(), host_environment: None }
     }
 
     /// Indexes the real apps on this machine and runs real searches; opt-in (no UI).
