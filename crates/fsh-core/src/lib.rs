@@ -2,6 +2,7 @@
 //! be unit-tested without a desktop.
 
 pub mod audio;
+pub mod bluetooth;
 pub mod calendar;
 pub mod network;
 pub mod geometry;

@@ -1,0 +1,104 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Bluetooth, BluetoothDevice } from "@ferroshell/services.slint";
+import { Label, DimLabel, Heading, ListRow, Toggle, BluetoothIcon } from "@ferroshell/controls.slint";
+
+component TextButton inherits Rectangle {
+    in property <string> text;
+    callback clicked();
+    height: 26px;
+    width: label.preferred-width + 20px;
+    border-radius: Theme.radius;
+    background: touch.pressed ? Theme.pressed : touch.has-hover ? Theme.hover : Theme.highlight;
+    label := Text {
+        text: root.text;
+        color: Theme.foreground;
+        font-size: Theme.font-size * 0.9;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.clicked(); } }
+}
+
+component DeviceRow inherits Rectangle {
+    in property <BluetoothDevice> dev;
+    property <bool> busy;
+    height: 44px;
+    border-radius: Theme.radius;
+    background: root.dev.connected ? Theme.highlight : transparent;
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 8px;
+        spacing: 10px;
+        BluetoothIcon {
+            y: (parent.height - self.height) / 2;
+            off: !root.dev.connected;
+            tint: Theme.accent;
+        }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Label { text: root.dev.name; }
+            DimLabel { text: root.busy ? (root.dev.connected ? "Disconnecting…" : "Connecting…") : root.dev.status; }
+        }
+        if root.dev.can-connect: TextButton {
+            y: (parent.height - self.height) / 2;
+            text: root.dev.connected ? "Disconnect" : "Connect";
+            clicked => {
+                root.busy = true;
+                if root.dev.connected {
+                    Bluetooth.disconnect(root.dev.id);
+                } else {
+                    Bluetooth.connect(root.dev.id);
+                }
+            }
+        }
+    }
+    // The next snapshot settles it either way.
+    changed dev => { root.busy = false; }
+}
+
+export component Popup inherits Rectangle {
+    in property <string> instance-id;
+
+    if !Bluetooth.available || !Bluetooth.present: Label {
+        text: "This PC has no Bluetooth.";
+        horizontal-alignment: center;
+    }
+
+    if Bluetooth.available && Bluetooth.present: Flickable {
+        viewport-height: content.preferred-height;
+        content := VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            alignment: start;
+
+            HorizontalLayout {
+                spacing: 10px;
+                BluetoothIcon { y: (parent.height - self.height) / 2; off: !Bluetooth.enabled; }
+                Label { text: "Bluetooth"; font-weight: 600; horizontal-stretch: 1; }
+                Toggle { checked: Bluetooth.enabled; toggled(v) => { Bluetooth.set-enabled(v); } }
+            }
+
+            if Bluetooth.error != "": Text {
+                text: Bluetooth.error;
+                color: Theme.error;
+                font-size: Theme.font-size * 0.9;
+                wrap: word-wrap;
+            }
+
+            if !Bluetooth.enabled: DimLabel { text: "Bluetooth is off."; }
+
+            if Bluetooth.enabled: VerticalLayout {
+                spacing: 4px;
+                Heading { text: "Paired devices"; }
+                if Bluetooth.devices.length == 0: DimLabel { text: "No paired devices yet."; }
+                for dev in Bluetooth.devices: DeviceRow { dev: dev; }
+            }
+
+            ListRow {
+                clicked => { Shell.invoke("launch", "ms-settings:bluetooth"); Shell.invoke("close-popup", ""); }
+                Label { text: "Add a device or change settings…"; color: Theme.accent; }
+            }
+        }
+    }
+}

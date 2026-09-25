@@ -133,3 +133,35 @@ export global Network {
     callback set-airplane-mode(bool);
     callback vpn-disconnect(/* name */ string);
 }
+
+// A paired Bluetooth device.
+export struct BluetoothDevice {
+    id: string,
+    name: string,
+    // "audio", "input", "phone", "computer", "wearable" or "other".
+    kind: string,
+    connected: bool,
+    // Audio devices: `Bluetooth.connect`/`disconnect` work on it. Other kinds reconnect
+    // by themselves when used.
+    can-connect: bool,
+    // 0-100, or -1 when Windows doesn't know.
+    battery: int,
+    // "Connected · 80%", "Paired", ...
+    status: string,
+}
+
+// Service "bluetooth": the radio and paired devices.
+export global Bluetooth {
+    in property <bool> available;
+    // This machine has a Bluetooth radio.
+    in property <bool> present;
+    in property <bool> enabled;
+    in property <int> connected-count;
+    in property <[BluetoothDevice]> devices;
+    // The last action's error, if any ("" otherwise).
+    in property <string> error;
+
+    callback set-enabled(bool);
+    callback connect(/* id */ string);
+    callback disconnect(/* id */ string);
+}

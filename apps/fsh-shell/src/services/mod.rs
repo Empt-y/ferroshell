@@ -7,6 +7,7 @@
 
 pub mod audio;
 pub mod media;
+pub mod bluetooth;
 pub mod network;
 
 use std::cell::RefCell;
@@ -26,6 +27,7 @@ pub enum Update {
     AppIcons(Vec<(String, RgbaImage)>),
     Media(media::Snapshot),
     Network(network::Snapshot),
+    Bluetooth(bluetooth::Snapshot),
 }
 
 #[derive(Default)]
@@ -33,9 +35,11 @@ pub struct Services {
     audio: RefCell<Option<audio::AudioService>>,
     media: RefCell<Option<media::MediaService>>,
     network: RefCell<Option<network::NetworkService>>,
+    bluetooth: RefCell<Option<bluetooth::BluetoothService>>,
     audio_state: RefCell<audio::Snapshot>,
     media_state: RefCell<media::Snapshot>,
     network_state: RefCell<network::Snapshot>,
+    bluetooth_state: RefCell<bluetooth::Snapshot>,
     art: RefCell<Option<Image>>,
     icons: RefCell<HashMap<String, Image>>,
     // Shared by every instance and updated in place, so a slider being dragged in a list
@@ -45,6 +49,7 @@ pub struct Services {
     apps: Rc<VecModel<Value>>,
     networks: Rc<VecModel<Value>>,
     vpns: Rc<VecModel<Value>>,
+    bt_devices: Rc<VecModel<Value>>,
 }
 
 type GlobalCallback = Box<dyn Fn(&[Value]) -> Value>;
@@ -148,7 +153,17 @@ impl App {
             drop(s.network.borrow_mut().take());
             self.on_service_update(Update::Network(network::Snapshot::default()));
         }
-        for unknown in wanted.iter().filter(|w| !["audio", "media", "network"].contains(&w.as_str())) {
+        let running = s.bluetooth.borrow().is_some();
+        if wanted.contains("bluetooth") && !running {
+            match bluetooth::BluetoothService::spawn(post) {
+                Ok(svc) => *s.bluetooth.borrow_mut() = Some(svc),
+                Err(e) => tracing::error!("could not start the bluetooth service: {e:#}"),
+            }
+        } else if !wanted.contains("bluetooth") && running {
+            drop(s.bluetooth.borrow_mut().take());
+            self.on_service_update(Update::Bluetooth(bluetooth::Snapshot::default()));
+        }
+        for unknown in wanted.iter().filter(|w| !["audio", "media", "network", "bluetooth"].contains(&w.as_str())) {
             tracing::warn!("a widget asks for unknown service `{unknown}`");
         }
     }
@@ -170,6 +185,13 @@ impl App {
         tracing::debug!("network: {cmd:?}");
         if let Some(n) = self.services.network.borrow().as_ref() {
             n.send(cmd);
+        }
+    }
+
+    fn bluetooth_cmd(&self, cmd: bluetooth::Cmd) {
+        tracing::debug!("bluetooth: {cmd:?}");
+        if let Some(b) = self.services.bluetooth.borrow().as_ref() {
+            b.send(cmd);
         }
     }
 
@@ -215,6 +237,16 @@ impl App {
         net("set-wifi-enabled", |a| network::Cmd::SetWifiEnabled(flag(a, 0)));
         net("set-airplane-mode", |a| network::Cmd::SetAirplaneMode(flag(a, 0)));
         net("vpn-disconnect", |a| network::Cmd::VpnDisconnect(text(a, 0)));
+        let bt = |name: &str, f: fn(&[Value]) -> bluetooth::Cmd| {
+            cb("Bluetooth", name, Box::new(move |a| {
+                let cmd = f(a);
+                with(|app| app.bluetooth_cmd(cmd));
+                Value::Void
+            }));
+        };
+        bt("set-enabled", |a| bluetooth::Cmd::SetEnabled(flag(a, 0)));
+        bt("connect", |a| bluetooth::Cmd::Connect(text(a, 0)));
+        bt("disconnect", |a| bluetooth::Cmd::Disconnect(text(a, 0)));
         let s = &self.services;
         let set = |global: &str, name: &str, v: Value| {
             if let Err(e) = instance.set_global_property(global, name, v) {
@@ -226,9 +258,11 @@ impl App {
         set("Audio", "apps", Value::Model(ModelRc::from(s.apps.clone())));
         set("Network", "networks", Value::Model(ModelRc::from(s.networks.clone())));
         set("Network", "vpns", Value::Model(ModelRc::from(s.vpns.clone())));
+        set("Bluetooth", "devices", Value::Model(ModelRc::from(s.bt_devices.clone())));
         self.apply_audio(instance);
         self.apply_media(instance);
         self.apply_network(instance);
+        self.apply_bluetooth(instance);
     }
 
     /// Every instance showing service data: panels and compiled popups.
@@ -285,6 +319,26 @@ impl App {
                 sync_model(&s.vpns, vpn_rows);
                 *s.network_state.borrow_mut() = snap;
                 self.for_each_instance(&|i| self.apply_network(i));
+            }
+            Update::Bluetooth(snap) => {
+                let rows = snap
+                    .devices
+                    .iter()
+                    .map(|d| {
+                        strukt(vec![
+                            ("id", Value::String(d.id.as_str().into())),
+                            ("name", Value::String(d.name.as_str().into())),
+                            ("kind", Value::String(d.kind.as_str().into())),
+                            ("connected", Value::Bool(d.connected)),
+                            ("can-connect", Value::Bool(d.can_connect)),
+                            ("battery", Value::Number(d.battery.map_or(-1.0, f64::from))),
+                            ("status", Value::String(d.status.as_str().into())),
+                        ])
+                    })
+                    .collect();
+                sync_model(&s.bt_devices, rows);
+                *s.bluetooth_state.borrow_mut() = snap;
+                self.for_each_instance(&|i| self.apply_bluetooth(i));
             }
         }
     }
@@ -387,12 +441,25 @@ impl App {
         set("error", Value::String(st.error.as_str().into()));
     }
 
+    fn apply_bluetooth(&self, i: &ComponentInstance) {
+        let st = self.services.bluetooth_state.borrow();
+        let set = |name: &str, v: Value| {
+            let _ = i.set_global_property("Bluetooth", name, v);
+        };
+        set("available", Value::Bool(st.available));
+        set("present", Value::Bool(st.present));
+        set("enabled", Value::Bool(st.enabled));
+        set("connected-count", Value::Number(st.devices.iter().filter(|d| d.connected).count() as f64));
+        set("error", Value::String(st.error.as_str().into()));
+    }
+
     /// For `fsh-ctl shell dump_state`.
     pub(crate) fn services_state(&self) -> serde_json::Value {
         let s = &self.services;
         let a = s.audio_state.borrow();
         let m = s.media_state.borrow();
         let n = s.network_state.borrow();
+        let b = s.bluetooth_state.borrow();
         serde_json::json!({
             "audio": {
                 "running": s.audio.borrow().is_some(),
@@ -428,6 +495,14 @@ impl App {
                 "networks": n.networks.iter().map(|w| serde_json::json!({"ssid": w.ssid, "security": w.security, "bars": w.bars, "connected": w.connected, "saved": w.saved})).collect::<Vec<_>>(),
                 "vpns": n.vpns.iter().map(|v| &v.name).collect::<Vec<_>>(),
                 "error": n.error,
+            },
+            "bluetooth": {
+                "running": s.bluetooth.borrow().is_some(),
+                "available": b.available,
+                "present": b.present,
+                "enabled": b.enabled,
+                "devices": b.devices.iter().map(|d| serde_json::json!({"name": d.name, "kind": d.kind, "status": d.status, "can_connect": d.can_connect})).collect::<Vec<_>>(),
+                "error": b.error,
             },
         })
     }

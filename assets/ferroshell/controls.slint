@@ -411,6 +411,23 @@ export component AirplaneIcon inherits Rectangle {
     }
 }
 
+// The Bluetooth rune; dim and struck through when `off`.
+export component BluetoothIcon inherits Rectangle {
+    in property <bool> off;
+    in property <color> tint: Theme.foreground;
+    width: 18px;
+    height: 18px;
+    Path {
+        viewbox-width: 24;
+        viewbox-height: 24;
+        width: 100%;
+        height: 100%;
+        stroke: root.off ? Theme.foreground-dim : root.tint;
+        stroke-width: 1.8px;
+        commands: "M6.5 7 L17 16.5 L12 21.5 L12 2.5 L17 7.5 L6.5 17" + (root.off ? " M3 3 L21 21" : "");
+    }
+}
+
 // A pill switch: on (accent) or off. Commits on click, unlike Slider — a switch has no
 // intermediate state to fight over with live data.
 export component Toggle inherits Rectangle {

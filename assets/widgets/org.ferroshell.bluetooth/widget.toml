@@ -1,0 +1,16 @@
+id = "org.ferroshell.bluetooth"
+name = "Bluetooth"
+description = "Bluetooth on/off and paired devices. Hidden on machines without Bluetooth."
+version = "1.0.0"
+api = 1
+services = ["bluetooth"]
+
+[popup]
+file = "popup.slint"
+width = 340
+height = 420
+
+[config.show-when-off]
+type = "bool"
+default = true
+label = "Show the icon while Bluetooth is off"

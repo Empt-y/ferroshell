@@ -3,6 +3,7 @@
 
 pub mod appbar;
 pub mod audio;
+pub mod bluetooth;
 pub mod appsfolder;
 pub mod clipboard;
 pub mod com;

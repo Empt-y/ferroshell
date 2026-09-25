@@ -12,6 +12,7 @@ serde_json.workspace = true
 tracing.workspace = true
 windows.workspace = true
 windows-core.workspace = true
+windows-collections.workspace = true
 
 # The one crate allowed to contain `unsafe`: everything here is a safe wrapper over Win32.
 [lints.rust]

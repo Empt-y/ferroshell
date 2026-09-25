@@ -33,6 +33,7 @@ are warnings: the widget still loads and the setting is ignored.
 | `org.ferroshell.systemtray` | `icon-scale`, `hidden` (patterns matched against tooltip or program name). Only works when Ferroshell replaces Explorer as the shell; alongside Explorer it stays empty |
 | `org.ferroshell.volume` | `scroll-step`, `show-percentage`; popup: `show-apps`, `show-media`, `show-input`. Click for the mixer (devices, per-app volume, now playing), scroll to change the volume, middle-click to mute |
 | `org.ferroshell.network` | `show-label`. Click for Wi-Fi/airplane-mode toggles, the network list (click a saved or open network to connect, an unsaved secured one to expand a password field), active VPNs, and a link to Windows' network settings |
+| `org.ferroshell.bluetooth` | `show-when-off`. Hidden on machines without Bluetooth. Click for the on/off switch and paired devices with battery levels; audio devices get Connect/Disconnect (others reconnect by themselves when used). Pairing new devices opens Windows' Bluetooth settings |
 | `org.ferroshell.clock` | `format`, `date-format` ([strftime](https://docs.rs/chrono/latest/chrono/format/strftime/)), `show-date`; popup (calendar): `first-day` (`"monday"`/`"sunday"`), `week-numbers` |
 | `org.ferroshell.show-desktop` | — |
 | `org.ferroshell.spacer` | `size` (0 = expand) |

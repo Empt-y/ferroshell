@@ -1,0 +1,32 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Bluetooth } from "@ferroshell/services.slint";
+import { PanelButton, BluetoothIcon } from "@ferroshell/controls.slint";
+
+export component Widget inherits PanelButton {
+    in property <string> instance-id;
+    in property <bool> show-when-off: true;
+
+    // No radio (or hidden while off): take no space at all.
+    property <bool> shown: Bluetooth.available && Bluetooth.present && (Bluetooth.enabled || root.show-when-off);
+    visible: root.shown;
+    max-width: root.shown ? 1000px : 0px;
+    max-height: root.shown ? 1000px : 0px;
+    horizontal-stretch: 0;
+    content-padding: root.shown ? 6px : 0px;
+    accessible-role: button;
+    accessible-label: !Bluetooth.enabled ? "Bluetooth, off"
+        : Bluetooth.connected-count > 0 ? "Bluetooth, " + Bluetooth.connected-count + " connected"
+        : "Bluetooth";
+
+    clicked => {
+        Shell.invoke("popup", root.instance-id + "|" + (self.absolute-position.x / 1px) + "," + (self.absolute-position.y / 1px)
+            + "," + (self.width / 1px) + "," + (self.height / 1px));
+    }
+
+    if root.shown: BluetoothIcon {
+        off: !Bluetooth.enabled;
+        tint: Bluetooth.connected-count > 0 ? Theme.accent : Theme.foreground;
+        width: Theme.icon-size * 0.8;
+        height: self.width;
+    }
+}
