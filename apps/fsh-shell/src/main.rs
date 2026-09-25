@@ -9,6 +9,7 @@ mod app_tasks;
 mod app_tray;
 mod banner;
 mod control;
+mod desktop;
 mod launcher;
 mod notify;
 mod osd;
@@ -129,7 +130,7 @@ fn run() -> anyhow::Result<i32> {
         .select()
         .map_err(|e| anyhow::anyhow!("selecting the {renderer} renderer: {e}"))?;
 
-    let app = app::App::start(args.safe_mode)?;
+    let app = app::App::start(args.safe_mode, args.replace)?;
     control::serve()?;
 
     slint::run_event_loop_until_quit()?;

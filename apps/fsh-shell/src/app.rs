@@ -82,6 +82,8 @@ enum Pending {
 
 pub struct App {
     pub(crate) safe_mode: bool,
+    /// Running as the login shell (`--replace`): we provide the desktop too.
+    pub(crate) replace: bool,
     layout: Layout,
     pub(crate) composer: Composer,
     pub(crate) state: RefCell<State>,
@@ -102,6 +104,7 @@ pub struct App {
     pub(crate) services: crate::services::Services,
     pub(crate) osd: crate::osd::Osd,
     pub(crate) banner: crate::banner::Banner,
+    pub(crate) desktop: crate::desktop::Desktop,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
@@ -116,7 +119,7 @@ pub struct App {
 }
 
 impl App {
-    pub fn start(safe_mode: bool) -> anyhow::Result<Rc<App>> {
+    pub fn start(safe_mode: bool, replace: bool) -> anyhow::Result<Rc<App>> {
         let layout = Layout::new(paths::state_dir().join("builtin"), paths::config_dir());
         let written = layout.extract_builtin()?;
         tracing::info!("built-in assets at {} ({written} files updated)", layout.builtin.display());
@@ -129,6 +132,7 @@ impl App {
         })?;
         let app = Rc::new(App {
             safe_mode,
+            replace,
             composer: Composer::new(layout.clone()),
             layout,
             state: RefCell::new(State {
@@ -160,6 +164,7 @@ impl App {
             services: crate::services::Services::default(),
             osd: crate::osd::Osd::default(),
             banner: crate::banner::Banner::default(),
+            desktop: crate::desktop::Desktop::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -179,6 +184,9 @@ impl App {
         APP.with(|a| *a.borrow_mut() = Some(app.clone()));
         app.launcher.state.borrow_mut().history = crate::launcher::load_history();
 
+        if replace {
+            app.start_desktop();
+        }
         app.load();
         app.rebuild_panels();
         app.sync_pinned();
@@ -670,6 +678,8 @@ impl App {
         let tasks = self.tasks.borrow();
         json!({
             "safe_mode": self.safe_mode,
+            "replace": self.replace,
+            "desktop": self.desktop_state(),
             "identity": fsh_win::identity::package_full_name(),
             "config_error": st.config.error(),
             "config_from_last_good": matches!(st.config, LoadOutcome::Fallback { from_last_good: true, .. }),

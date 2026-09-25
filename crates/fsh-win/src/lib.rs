@@ -10,6 +10,7 @@ pub mod clipboard;
 pub mod com;
 pub mod console;
 pub mod crash;
+pub mod desktop;
 pub mod hotkey;
 pub mod icon;
 pub mod identity;

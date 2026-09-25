@@ -153,7 +153,7 @@ impl Drop for MessageWindow {
     }
 }
 
-unsafe extern "system" fn trampoline(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+pub(crate) unsafe extern "system" fn trampoline(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
     unsafe {
         if msg == WM_NCCREATE {
             let cs = &*(lparam.0 as *const CREATESTRUCTW);
