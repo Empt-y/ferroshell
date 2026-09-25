@@ -19,8 +19,8 @@ use windows::Win32::Graphics::Gdi::{BeginPaint, EndPaint, InvalidateRect, PAINTS
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::UI::WindowsAndMessaging::{
     CS_DBLCLKS, CWP_SKIPINVISIBLE, ChildWindowFromPointEx, CreateWindowExW, DestroyWindow, GWL_EXSTYLE,
-    GetWindowLongPtrW, SW_HIDE, SW_SHOWNOACTIVATE, SWP_NOZORDER, SetForegroundWindow,
-    SetWindowLongPtrW, ShowWindow, WM_PARENTNOTIFY, WM_SETFOCUS, WS_EX_APPWINDOW, FindWindowW, GetCursorPos, GetShellWindow, GetSystemMetrics, HWND_BOTTOM,
+    GWLP_HWNDPARENT, GetWindowLongPtrW, SWP_NOZORDER, SetForegroundWindow,
+    SetWindowLongPtrW, WM_PARENTNOTIFY, WM_SETFOCUS, WS_EX_APPWINDOW, FindWindowW, GetCursorPos, GetShellWindow, GetSystemMetrics, HWND_BOTTOM,
     IDC_ARROW, LoadCursorW, RegisterClassExW, SC_TASKLIST, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
     SM_YVIRTUALSCREEN, SWP_NOACTIVATE, SetWindowPos, WINDOWPOS, WM_CLOSE, WM_CONTEXTMENU, WM_DISPLAYCHANGE,
     WM_ERASEBKGND, WM_PAINT, WM_SETTINGCHANGE, WM_SYSCOMMAND, WM_WINDOWPOSCHANGING, WNDCLASSEXW, WS_CLIPCHILDREN,
@@ -241,15 +241,19 @@ impl DesktopWindow {
     }
 
     /// Makes another window (an icon view) part of the desktop, covering `screen`: a tool
-    /// window (never in the taskbar or Alt+Tab) kept at the bottom of the z-order however
-    /// it's activated. It stays a top-level window, so it keeps its own monitor's scaling.
-    /// Our own background window hides behind the views while there are any.
+    /// window (never in the taskbar or Alt+Tab) owned by the desktop, so it stays just above
+    /// it at the bottom of the z-order however it's activated. It stays a top-level window,
+    /// so it keeps its own monitor's scaling.
+    ///
+    /// Give it the work area, not the whole monitor: a window exactly covering a monitor is
+    /// treated as a full-screen game (presented directly, over the panels).
     pub fn adopt(&self, view: Hwnd, screen: Rect) {
         // The window style stays as its toolkit made it (a frameless window that hides its
         // own caption); only the extended style changes.
         unsafe {
             let ex = (GetWindowLongPtrW(view.raw(), GWL_EXSTYLE) as u32 & !WS_EX_APPWINDOW.0) | WS_EX_TOOLWINDOW.0;
             SetWindowLongPtrW(view.raw(), GWL_EXSTYLE, ex as isize);
+            SetWindowLongPtrW(view.raw(), GWLP_HWNDPARENT, self.hwnd.0);
             let _ = SetWindowSubclass(view.raw(), Some(stay_at_bottom), 0x4653, 0);
             let _ = SetWindowPos(
                 view.raw(),
@@ -260,7 +264,6 @@ impl DesktopWindow {
                 screen.height(),
                 SWP_NOACTIVATE,
             );
-            let _ = ShowWindow(self.hwnd.raw(), SW_HIDE);
         }
         let mut kids = self.children.borrow_mut();
         if !kids.contains(&view) {
@@ -268,17 +271,9 @@ impl DesktopWindow {
         }
     }
 
-    /// A view went away (e.g. its monitor was unplugged). With none left, our own
-    /// background window shows the wallpaper again.
+    /// A view went away (e.g. its monitor was unplugged).
     pub fn release(&self, view: Hwnd) {
-        let mut kids = self.children.borrow_mut();
-        kids.retain(|h| *h != view);
-        if kids.is_empty() {
-            unsafe {
-                let _ = ShowWindow(self.hwnd.raw(), SW_SHOWNOACTIVATE);
-            }
-            cover_virtual_screen(self.hwnd);
-        }
+        self.children.borrow_mut().retain(|h| *h != view);
     }
 
     /// Gives the keyboard to a view.

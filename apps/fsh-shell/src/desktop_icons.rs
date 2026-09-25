@@ -195,14 +195,9 @@ impl App {
                 }
             };
             let scale = f64::from(monitor.scale());
+            // The view covers the work area (see `DesktopWindow::adopt`).
             let (r, w) = (monitor.rect, monitor.work);
-            let grid = Grid::new(
-                f64::from(w.left - r.left) / scale,
-                f64::from(w.top - r.top) / scale,
-                f64::from(w.width()) / scale,
-                f64::from(w.height()) / scale,
-                icon_size(view),
-            );
+            let grid = Grid::new(0.0, 0.0, f64::from(w.width()) / scale, f64::from(w.height()) / scale, icon_size(view));
             let model = Rc::new(VecModel::<Value>::default());
             self.wire_desktop_surface(&instance, index);
             let set = |p: &str, v: Value| {
@@ -215,12 +210,16 @@ impl App {
             set("cell-height", Value::Number(grid.cell_h));
             set("icon-size", Value::Number(f64::from(icon_size(view).pixels())));
             set("show-icons", Value::Bool(view.show_icons));
+            set("monitor-x", Value::Number(f64::from(r.left - w.left) / scale));
+            set("monitor-y", Value::Number(f64::from(r.top - w.top) / scale));
+            set("monitor-width", Value::Number(f64::from(r.width()) / scale));
+            set("monitor-height", Value::Number(f64::from(r.height()) / scale));
             {
                 let st = self.state.borrow();
                 theme_binding::apply(&instance, &st.theme, st.accent);
             }
-            instance.window().set_position(slint::PhysicalPosition::new(r.left, r.top));
-            instance.window().set_size(slint::PhysicalSize::new(r.width() as u32, r.height() as u32));
+            instance.window().set_position(slint::PhysicalPosition::new(w.left, w.top));
+            instance.window().set_size(slint::PhysicalSize::new(w.width() as u32, w.height() as u32));
             if let Err(e) = instance.show() {
                 tracing::error!("desktop view: {e}");
                 continue;
@@ -259,7 +258,7 @@ impl App {
             fsh_win::winops::activate(hwnd);
         } else if let Some(desk) = self.desktop.window.borrow().as_ref() {
             // No focus grab: a restarted shell mustn't pull the keyboard from the user's app.
-            desk.adopt(hwnd, s.monitor.rect);
+            desk.adopt(hwnd, s.monitor.work);
         }
         let _ = s.instance.invoke("take-focus", &[]);
     }
@@ -520,7 +519,7 @@ impl App {
     }
 
     fn surface_at_screen(&self, x: i32, y: i32) -> Option<usize> {
-        self.desktop_icons.surfaces.borrow().iter().position(|s| s.monitor.rect.contains_point(x, y))
+        self.desktop_icons.surfaces.borrow().iter().position(|s| s.monitor.work.contains_point(x, y))
     }
 
     fn desktop_icon_drag(&self, s: usize, kind: &str, x: f64, y: f64) {
@@ -533,7 +532,7 @@ impl App {
         let (sx, sy) = {
             let surfaces = d.surfaces.borrow();
             let Some(src) = surfaces.get(s) else { return };
-            (src.monitor.rect.left + (x * src.scale) as i32, src.monitor.rect.top + (y * src.scale) as i32)
+            (src.monitor.work.left + (x * src.scale) as i32, src.monitor.work.top + (y * src.scale) as i32)
         };
         match kind {
             "move" => {
@@ -541,8 +540,8 @@ impl App {
                 let target = self.surface_at_screen(sx, sy).map(|t| {
                     let surfaces = d.surfaces.borrow();
                     let ts = &surfaces[t];
-                    let lx = f64::from(sx - ts.monitor.rect.left) / ts.scale;
-                    let ly = f64::from(sy - ts.monitor.rect.top) / ts.scale;
+                    let lx = f64::from(sx - ts.monitor.work.left) / ts.scale;
+                    let ly = f64::from(sy - ts.monitor.work.top) / ts.scale;
                     (t, ts.grid.cell_at(lx, ly))
                 });
                 {
@@ -814,7 +813,7 @@ impl App {
         let (sx, sy) = {
             let surfaces = d.surfaces.borrow();
             let Some(surf) = surfaces.get(s) else { return };
-            (surf.monitor.rect.left + (x * surf.scale) as i32, surf.monitor.rect.top + (y * surf.scale) as i32)
+            (surf.monitor.work.left + (x * surf.scale) as i32, surf.monitor.work.top + (y * surf.scale) as i32)
         };
         if local < 0 {
             d.selected.borrow_mut().clear();

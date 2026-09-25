@@ -25,6 +25,12 @@ export global Desktop {
     // "fill", "fit", "stretch", "center" or "tile" (Windows' "Choose a fit").
     in property <string> wallpaper-fit: "fill";
     in property <color> background: #000000;
+    // Where the whole monitor is, relative to this window (which covers only the work
+    // area): the picture is fitted to the monitor, as Windows does.
+    in property <length> monitor-x;
+    in property <length> monitor-y;
+    in property <length> monitor-width;
+    in property <length> monitor-height;
 
     in property <bool> show-icons: true;
     in property <[DesktopIcon]> icons;
@@ -190,14 +196,18 @@ export component DesktopWindow inherits Window {
 
     // Windows' fits: fill = cover, fit = contain, stretch = fill, center = natural size.
     if Desktop.has-wallpaper && Desktop.wallpaper-fit != "tile": Image {
-        width: parent.width;
-        height: parent.height;
+        x: Desktop.monitor-x;
+        y: Desktop.monitor-y;
+        width: Desktop.monitor-width > 0 ? Desktop.monitor-width : parent.width;
+        height: Desktop.monitor-height > 0 ? Desktop.monitor-height : parent.height;
         source: Desktop.wallpaper;
         image-fit: Desktop.wallpaper-fit == "fit" ? contain : Desktop.wallpaper-fit == "stretch" ? fill : Desktop.wallpaper-fit == "center" ? preserve : cover;
     }
     if Desktop.has-wallpaper && Desktop.wallpaper-fit == "tile": Image {
-        width: parent.width;
-        height: parent.height;
+        x: Desktop.monitor-x;
+        y: Desktop.monitor-y;
+        width: Desktop.monitor-width > 0 ? Desktop.monitor-width : parent.width;
+        height: Desktop.monitor-height > 0 ? Desktop.monitor-height : parent.height;
         source: Desktop.wallpaper;
         horizontal-tiling: repeat;
         vertical-tiling: repeat;
