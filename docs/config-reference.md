@@ -76,6 +76,41 @@ shares, URLs and `shell:` locations open directly. Keys: arrows and Page Up/Down
 Enter opens, Ctrl+Enter runs as administrator, Tab/Shift+Tab switch category, Escape
 clears or closes. Changing the launcher section never rebuilds panels.
 
+## Session (login shell only)
+
+Used only when Ferroshell is your login shell
+([packaging/shell](../packaging/shell/README.md)).
+
+```toml
+[session]
+startup-apps = true     # Run/RunOnce entries and Startup folders, as Explorer starts them
+startup-tasks = true    # Store apps' startup tasks (Spotify, Terminal, ...)
+startup-delay = 2       # seconds after the desktop is up
+startup-exclude = []    # e.g. ["Discord", "Ollama", "SpotifyAB.SpotifyMusic_zpdnekdrzrea0"]
+```
+
+- **What starts.** Anything you've turned off in Task Manager's **Startup apps**
+  (or Settings > Apps > Startup) stays off.
+- **Excluding things.** `startup-exclude` matches, case-insensitively:
+  - a Run entry's name;
+  - a Startup-folder file, with or without its extension;
+  - a startup task id;
+  - a package family name.
+- **Once per sign-in.** Startup apps run once per sign-in; restarting Ferroshell doesn't
+  start them again.
+- **Checking the list.** `fsh-session --list-startup` shows what would start and why the
+  rest won't.
+
+## Lock screen
+
+```toml
+[lock-screen]
+sync-image = false      # use the wallpaper as Windows' lock screen picture, and follow it
+```
+
+This works alongside Explorer too. Setting a picture replaces Windows Spotlight on the
+lock screen. `fsh-shell --sync-lock-screen` does it once.
+
 ## Safe mode
 
 After three crashes within a minute, the supervisor restarts the shell in safe mode:

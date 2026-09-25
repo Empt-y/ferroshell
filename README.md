@@ -15,8 +15,10 @@ Plasma-style applets you can add, remove and restyle one by one:
 
 There's also a Kickoff-style launcher.
 
-It currently runs **alongside Explorer**, hiding Explorer's taskbar while it runs.
-Replacing Explorer as the login shell comes later (see [Roadmap](#roadmap)).
+It runs either **alongside Explorer**, hiding Explorer's taskbar while it runs, or
+**instead of Explorer** as your login shell. As the login shell it also provides the
+desktop, startup apps and Explorer's Windows-key shortcuts
+([details](packaging/shell/README.md)).
 
 ## Running it
 
@@ -43,6 +45,17 @@ fsh-ctl status
 Other `fsh-ctl` commands: `reload`, `restart`, `safe-mode on|off`, `stop`, `start`,
 `quit`, `shell dump_state` (everything the shell knows, as JSON), and `debug crash` /
 `debug hang` to exercise recovery.
+
+### As your login shell
+
+```powershell
+packaging\shell\install.ps1               # installs to %LOCALAPPDATA%\Programs\Ferroshell
+packaging\shell\enable-login-shell.ps1    # from your next sign-in; undo: disable-login-shell.ps1
+```
+
+Your user account only, no admin. It falls back to Explorer if it can't run. See
+[packaging/shell](packaging/shell/README.md) for recovery, and what's covered and what
+isn't.
 
 ## Customising
 
@@ -121,7 +134,8 @@ recover, and `scripts\screenshot.ps1` captures the panel for visual checks.
 - [x] Applet popups and system services: calendar, volume/media (+ OSD and media keys in
       replacement mode), network, Bluetooth, battery/power mode/brightness
 - [x] Notifications applet and banners (needs the one-time package identity setup)
-- [ ] Full Explorer replacement at login (startup apps, `SetShellWindow`)
+- [x] Login shell: startup apps, desktop and shell window, Explorer's shortcuts,
+      environment refresh, lock screen picture sync
 - [ ] Virtual desktop pager
 
 ## License
