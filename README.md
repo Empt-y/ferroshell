@@ -4,6 +4,17 @@ A KDE Plasma-style desktop shell for Windows, written in Rust. Panels, a task ma
 and widgets are built from plain files you can edit, and it's designed to fail safely: a
 crash or hang never leaves you without a taskbar.
 
+Beyond the taskbar, it replaces what Windows' `ShellExperienceHost` provides, as
+Plasma-style applets you can add, remove and restyle one by one:
+- **Volume:** devices, per-app mixer and now playing.
+- **Network:** Wi-Fi, Ethernet, VPN and airplane mode.
+- **Bluetooth.**
+- **Battery:** power mode and brightness.
+- **Notifications:** with banners.
+- **Calendar:** on the clock.
+
+There's also a Kickoff-style launcher.
+
 It currently runs **alongside Explorer**, hiding Explorer's taskbar while it runs.
 Replacing Explorer as the login shell comes later (see [Roadmap](#roadmap)).
 
@@ -43,6 +54,9 @@ Everything lives in `%APPDATA%\ferroshell` and is reloaded automatically when sa
 | Themes (colours, sizes, backdrop) | `themes\<name>\theme.toml` | [theming](docs/theming.md) |
 | Your own widgets, or overrides of built-in ones | `widgets\<id>\` | [widget API](docs/widget-api.md) |
 | Widget behaviour in any language | a plugin executable | [plugin protocol](docs/plugin-protocol.md) |
+| Applet popups, system services (audio, network, power…) | `widgets\<id>\popup.slint` | [widget API](docs/widget-api.md#popups) |
+| Launcher, OSD, banners, previews | `library\*.slint` | [theming](docs/theming.md#restyling-the-launcher-osd-banners-and-previews) |
+| Notifications (one-time setup) | package identity | [packaging/identity](packaging/identity/README.md) |
 
 Built-in widgets and themes are extracted to `%LOCALAPPDATA%\ferroshell\builtin`. Copy
 one into your own folder to change it: a widget in `%APPDATA%\ferroshell\widgets` with
@@ -56,7 +70,9 @@ red `!` placeholder while the rest of the panel keeps working. Hover it to see w
 ```
 fsh-session   supervisor: restarts, crash-loop → safe mode → Explorer, hang watchdog,
  │            emergency hotkey, restores Explorer's taskbar however things end
- └─ fsh-shell  panels (Slint), window tracker thread, script thread, plugin host
+ └─ fsh-shell  panels (Slint), popups, window tracker thread, script thread, plugin host,
+     │         a worker thread per system service (audio, media, network, Bluetooth,
+     │         power, notifications), started only when a widget uses it
      └─ plugins  one process per plugin widget, in a Job Object (memory cap, dies with shell)
 fsh-settings  settings GUI (edits config.toml, keeping comments)
 fsh-ctl       command-line control over \\.\pipe\ferroshell and \\.\pipe\ferroshell-session
@@ -64,8 +80,8 @@ fsh-ctl       command-line control over \\.\pipe\ferroshell and \\.\pipe\ferrosh
 
 | Crate | Purpose |
 |---|---|
-| `fsh-win` | the only crate with `unsafe`: safe wrappers over Win32 |
-| `fsh-core` | pure shell logic: window classification, task grouping, panel geometry |
+| `fsh-win` | the only crate with `unsafe`: safe wrappers over Win32 and WinRT (Core Audio, WLAN, Bluetooth, power, notifications…) |
+| `fsh-core` | pure, unit-tested shell logic: window classification, task grouping, panel geometry, launcher search, calendar, applet helpers |
 | `fsh-config` | config/theme schemas, validation, migrations, comment-preserving edits |
 | `fsh-widgets` | widget packages, the panel composer (slint-interpreter), built-in assets |
 | `fsh-ipc` | JSON-RPC 2.0 over named pipes and stdio |
@@ -102,8 +118,11 @@ recover, and `scripts\screenshot.ps1` captures the panel for visual checks.
 - [x] Settings GUI
 - [x] System tray (active in replacement mode only)
 - [x] Kickoff-style application launcher (Windows key, search, calculator, run, Settings pages)
+- [x] Applet popups and system services: calendar, volume/media (+ OSD and media keys in
+      replacement mode), network, Bluetooth, battery/power mode/brightness
+- [x] Notifications applet and banners (needs the one-time package identity setup)
 - [ ] Full Explorer replacement at login (startup apps, `SetShellWindow`)
-- [ ] Virtual desktop pager, notifications
+- [ ] Virtual desktop pager
 
 ## License
 

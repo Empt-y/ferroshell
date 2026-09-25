@@ -57,11 +57,41 @@ A theme can restyle any widget completely by including `widgets\<widget-id>\` (a
 widget package; see [widget-api.md](widget-api.md)). Lookup order is: your
 `%APPDATA%\ferroshell\widgets`, then the active theme's `widgets`, then the built-ins.
 
-## Restyling the launcher and popups
+## Restyling the launcher, OSD, banners and previews
 
-The launcher (`launcher.slint`) and the hover previews (`popups.slint`) are Slint files
-in `%LOCALAPPDATA%\ferroshell\builtin\ferroshell\`. To change their look, copy one to
-`%APPDATA%\ferroshell\library\` (yours) or to `<theme>\library\` (part of a theme), and
-change the imports at the top to `@ferroshell/api.slint`. Keep the exported component and
-its `Launcher` global. A copy that fails to compile is ignored: the built-in one is used
-instead and the error is logged.
+These shell windows are Slint files in `%LOCALAPPDATA%\ferroshell\builtin\ferroshell\`:
+
+| File | Component | What it is |
+|---|---|---|
+| `launcher.slint` | `LauncherWindow` (+ the `Launcher` global) | the application launcher |
+| `popups.slint` | `PreviewPopup` | task hover previews |
+| `osd.slint` | `OsdWindow` | the volume/brightness on-screen display (replacement mode) |
+| `banner.slint` | `BannerWindow` | notification banners |
+
+To change one's look:
+1. Copy it to `%APPDATA%\ferroshell\library\` (yours) or to `<theme>\library\` (part of a
+   theme).
+2. Change the relative imports at the top to `@ferroshell/…`, e.g.
+   `@ferroshell/api.slint`.
+3. Keep the exported component, its properties and its callbacks. The shell sets
+   `value`/`muted`/`kind` on the OSD, for example, and listens for the banner's
+   `clicked`/`closed`.
+
+A copy that fails to compile is ignored: the built-in one is used instead and the error
+is logged. Safe mode always uses the built-ins.
+
+## Restyling applet popups
+
+An applet's popup (the calendar, volume mixer, network list and so on) is the
+`popup.slint` in its widget package. To restyle one, override the whole widget: copy
+`builtin\widgets\<id>\` to `%APPDATA%\ferroshell\widgets\<id>\` or `<theme>\widgets\<id>\`,
+then edit `popup.slint`, `ui.slint` or both.
+
+The shell draws each popup's window:
+- a rounded rectangle in `popup-background` with a `panel-border` hairline;
+- the theme's `backdrop` behind it;
+- keyboard focus, Escape to close, and placement next to the applet.
+
+Popups have the same `Theme` tokens and system services as panel widgets (see
+[widget-api.md](widget-api.md#system-services)). `@ferroshell/controls.slint` provides
+themed sliders, switches, list rows and vector icons to build them from.
