@@ -537,6 +537,11 @@ impl App {
 
     /// Where overrides of `@ferroshell` library files are looked for, highest priority
     /// first: the user's `library` folder, then the theme's. None in safe mode.
+    /// The shell's hidden event window (system broadcasts, power-setting notifications).
+    pub(crate) fn events_hwnd(&self) -> fsh_win::Hwnd {
+        self._events.hwnd()
+    }
+
     pub(crate) fn library_overrides(&self) -> Vec<std::path::PathBuf> {
         if self.safe_mode {
             return vec![];
@@ -749,6 +754,13 @@ fn on_system_message(_hwnd: fsh_win::Hwnd, msg: u32, _wparam: usize, lparam: isi
                     with(|a| a.refresh_theme());
                 });
             }
+        }
+        fsh_win::power::WM_POWERBROADCAST if _wparam == fsh_win::power::PBT_POWERSETTINGCHANGE as usize => {
+            // `lparam` is only valid during this message: parse it now.
+            if let Some(setting) = fsh_win::power::parse_power_setting(lparam) {
+                with(|a| a.on_power_setting(setting));
+            }
+            return Some(1);
         }
         window::WM_DWMCOLORIZATIONCOLORCHANGED => {
             slint::Timer::single_shot(Duration::from_millis(200), || {

@@ -9,6 +9,7 @@ pub mod audio;
 pub mod media;
 pub mod bluetooth;
 pub mod network;
+pub mod power;
 
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
@@ -28,6 +29,7 @@ pub enum Update {
     Media(media::Snapshot),
     Network(network::Snapshot),
     Bluetooth(bluetooth::Snapshot),
+    Power(power::Snapshot),
 }
 
 #[derive(Default)]
@@ -36,10 +38,14 @@ pub struct Services {
     media: RefCell<Option<media::MediaService>>,
     network: RefCell<Option<network::NetworkService>>,
     bluetooth: RefCell<Option<bluetooth::BluetoothService>>,
+    power: RefCell<Option<power::PowerService>>,
+    // Power-setting notifications to the shell's event window while the power service runs.
+    power_notify: RefCell<Option<fsh_win::power::PowerNotifications>>,
     audio_state: RefCell<audio::Snapshot>,
     media_state: RefCell<media::Snapshot>,
     network_state: RefCell<network::Snapshot>,
     bluetooth_state: RefCell<bluetooth::Snapshot>,
+    power_state: RefCell<power::Snapshot>,
     art: RefCell<Option<Image>>,
     icons: RefCell<HashMap<String, Image>>,
     // Shared by every instance and updated in place, so a slider being dragged in a list
@@ -50,6 +56,7 @@ pub struct Services {
     networks: Rc<VecModel<Value>>,
     vpns: Rc<VecModel<Value>>,
     bt_devices: Rc<VecModel<Value>>,
+    displays: Rc<VecModel<Value>>,
 }
 
 type GlobalCallback = Box<dyn Fn(&[Value]) -> Value>;
@@ -163,7 +170,21 @@ impl App {
             drop(s.bluetooth.borrow_mut().take());
             self.on_service_update(Update::Bluetooth(bluetooth::Snapshot::default()));
         }
-        for unknown in wanted.iter().filter(|w| !["audio", "media", "network", "bluetooth"].contains(&w.as_str())) {
+        let running = s.power.borrow().is_some();
+        if wanted.contains("power") && !running {
+            match power::PowerService::spawn(post) {
+                Ok(svc) => {
+                    *s.power.borrow_mut() = Some(svc);
+                    *s.power_notify.borrow_mut() = Some(fsh_win::power::PowerNotifications::register(self.events_hwnd()));
+                }
+                Err(e) => tracing::error!("could not start the power service: {e:#}"),
+            }
+        } else if !wanted.contains("power") && running {
+            drop(s.power_notify.borrow_mut().take());
+            drop(s.power.borrow_mut().take());
+            self.on_service_update(Update::Power(power::Snapshot::default()));
+        }
+        for unknown in wanted.iter().filter(|w| !["audio", "media", "network", "bluetooth", "power"].contains(&w.as_str())) {
             tracing::warn!("a widget asks for unknown service `{unknown}`");
         }
     }
@@ -185,6 +206,13 @@ impl App {
         tracing::debug!("network: {cmd:?}");
         if let Some(n) = self.services.network.borrow().as_ref() {
             n.send(cmd);
+        }
+    }
+
+    pub(crate) fn power_cmd(&self, cmd: power::Cmd) {
+        tracing::debug!("power: {cmd:?}");
+        if let Some(p) = self.services.power.borrow().as_ref() {
+            p.send(cmd);
         }
     }
 
@@ -247,6 +275,23 @@ impl App {
         bt("set-enabled", |a| bluetooth::Cmd::SetEnabled(flag(a, 0)));
         bt("connect", |a| bluetooth::Cmd::Connect(text(a, 0)));
         bt("disconnect", |a| bluetooth::Cmd::Disconnect(text(a, 0)));
+        cb("Power", "set-power-mode", Box::new(|a| {
+            let mode = match text(a, 0).as_str() {
+                "efficiency" => Some(fsh_win::power::PowerMode::Efficiency),
+                "balanced" => Some(fsh_win::power::PowerMode::Balanced),
+                "performance" => Some(fsh_win::power::PowerMode::Performance),
+                _ => None,
+            };
+            if let Some(m) = mode {
+                with(|app| app.power_cmd(power::Cmd::SetPowerMode(m)));
+            }
+            Value::Void
+        }));
+        cb("Power", "set-brightness", Box::new(|a| {
+            let cmd = power::Cmd::SetBrightness { id: text(a, 0), percent: num(a, 1).round().clamp(0.0, 100.0) as u8 };
+            with(|app| app.power_cmd(cmd));
+            Value::Void
+        }));
         let s = &self.services;
         let set = |global: &str, name: &str, v: Value| {
             if let Err(e) = instance.set_global_property(global, name, v) {
@@ -259,10 +304,12 @@ impl App {
         set("Network", "networks", Value::Model(ModelRc::from(s.networks.clone())));
         set("Network", "vpns", Value::Model(ModelRc::from(s.vpns.clone())));
         set("Bluetooth", "devices", Value::Model(ModelRc::from(s.bt_devices.clone())));
+        set("Power", "displays", Value::Model(ModelRc::from(s.displays.clone())));
         self.apply_audio(instance);
         self.apply_media(instance);
         self.apply_network(instance);
         self.apply_bluetooth(instance);
+        self.apply_power(instance);
     }
 
     /// Every instance showing service data: panels and compiled popups.
@@ -339,6 +386,23 @@ impl App {
                 sync_model(&s.bt_devices, rows);
                 *s.bluetooth_state.borrow_mut() = snap;
                 self.for_each_instance(&|i| self.apply_bluetooth(i));
+            }
+            Update::Power(snap) => {
+                let rows = snap
+                    .displays
+                    .iter()
+                    .map(|d| {
+                        strukt(vec![
+                            ("id", Value::String(d.id.as_str().into())),
+                            ("name", Value::String(d.name.as_str().into())),
+                            ("internal", Value::Bool(d.internal)),
+                            ("brightness", Value::Number(f64::from(d.brightness))),
+                        ])
+                    })
+                    .collect();
+                sync_model(&s.displays, rows);
+                *s.power_state.borrow_mut() = snap;
+                self.for_each_instance(&|i| self.apply_power(i));
             }
         }
     }
@@ -441,6 +505,59 @@ impl App {
         set("error", Value::String(st.error.as_str().into()));
     }
 
+    fn apply_power(&self, i: &ComponentInstance) {
+        use fsh_win::power::{EnergySaver, PowerMode};
+        let st = self.services.power_state.borrow();
+        let set = |name: &str, v: Value| {
+            let _ = i.set_global_property("Power", name, v);
+        };
+        set("available", Value::Bool(st.available));
+        set("has-battery", Value::Bool(st.has_battery));
+        set("percent", Value::Number(f64::from(st.percent)));
+        set("level", Value::Number(f64::from(fsh_core::power::icon_level(st.percent))));
+        set("charging", Value::Bool(st.charging));
+        set("on-ac", Value::Bool(st.on_ac));
+        set("status", Value::String(st.status.as_str().into()));
+        set("health", Value::Number(st.health.map_or(-1.0, f64::from)));
+        set(
+            "power-mode",
+            Value::String(
+                match st.power_mode {
+                    Some(PowerMode::Efficiency) => "efficiency",
+                    Some(PowerMode::Balanced) => "balanced",
+                    Some(PowerMode::Performance) => "performance",
+                    None => "custom",
+                }
+                .into(),
+            ),
+        );
+        set("mode-available", Value::Bool(st.mode_available));
+        set(
+            "energy-saver",
+            Value::String(
+                match st.energy_saver {
+                    Some(EnergySaver::On) => "on",
+                    Some(EnergySaver::Off) => "off",
+                    _ => "unavailable",
+                }
+                .into(),
+            ),
+        );
+        set("error", Value::String(st.error.as_str().into()));
+    }
+
+    /// The built-in screen's brightness changed (power-setting notification): refresh the
+    /// applet, and in replacement mode show the OSD (Explorer's isn't there).
+    pub(crate) fn on_power_setting(&self, setting: fsh_win::power::PowerSetting) {
+        self.power_cmd(power::Cmd::Refresh);
+        if let fsh_win::power::PowerSetting::Brightness(level) = setting {
+            tracing::debug!("brightness changed to {level}");
+            if crate::osd::media_keys_wanted(self.safe_mode) {
+                self.show_osd_level(crate::osd::OsdKind::Brightness, f64::from(level), false);
+            }
+        }
+    }
+
     fn apply_bluetooth(&self, i: &ComponentInstance) {
         let st = self.services.bluetooth_state.borrow();
         let set = |name: &str, v: Value| {
@@ -460,6 +577,7 @@ impl App {
         let m = s.media_state.borrow();
         let n = s.network_state.borrow();
         let b = s.bluetooth_state.borrow();
+        let p = s.power_state.borrow();
         serde_json::json!({
             "audio": {
                 "running": s.audio.borrow().is_some(),
@@ -503,6 +621,21 @@ impl App {
                 "enabled": b.enabled,
                 "devices": b.devices.iter().map(|d| serde_json::json!({"name": d.name, "kind": d.kind, "status": d.status, "can_connect": d.can_connect})).collect::<Vec<_>>(),
                 "error": b.error,
+            },
+            "power": {
+                "running": s.power.borrow().is_some(),
+                "available": p.available,
+                "has_battery": p.has_battery,
+                "percent": p.percent,
+                "charging": p.charging,
+                "on_ac": p.on_ac,
+                "status": p.status,
+                "health": p.health,
+                "power_mode": p.power_mode.map(|m| format!("{m:?}")),
+                "mode_available": p.mode_available,
+                "energy_saver": p.energy_saver.map(|e| format!("{e:?}")),
+                "displays": p.displays.iter().map(|d| serde_json::json!({"name": d.name, "brightness": d.brightness, "internal": d.internal})).collect::<Vec<_>>(),
+                "error": p.error,
             },
         })
     }

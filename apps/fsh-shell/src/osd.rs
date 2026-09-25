@@ -1,4 +1,4 @@
-//! Volume and media keys while Ferroshell replaces Explorer, and the volume on-screen
+//! Volume and media keys while Ferroshell replaces Explorer, and the volume/brightness on-screen
 //! display (`@ferroshell/osd.slint`, overridable).
 //!
 //! Alongside Explorer both stay off: Explorer handles the keys and shows its own OSD.
@@ -33,6 +33,12 @@ pub struct Osd {
     last_key: Cell<Option<Instant>>,
     hide_timer: slint::Timer,
     attach_timer: slint::Timer,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OsdKind {
+    Volume,
+    Brightness,
 }
 
 /// Take over the volume and media keys? Only when Ferroshell replaces Explorer.
@@ -89,7 +95,7 @@ impl App {
                 true
             }
             Err(e) => {
-                tracing::error!("volume OSD unavailable: {e}");
+                tracing::error!("OSD unavailable: {e}");
                 o.unavailable.set(true);
                 false
             }
@@ -97,6 +103,12 @@ impl App {
     }
 
     fn show_osd(&self) {
+        let (volume, muted) = self.audio_level();
+        self.show_osd_level(OsdKind::Volume, volume, muted);
+    }
+
+    /// Show the OSD with a level (0–100) for 1.5 s.
+    pub(crate) fn show_osd_level(&self, kind: OsdKind, value: f64, muted: bool) {
         if !self.ensure_osd() {
             return;
         }
@@ -104,9 +116,13 @@ impl App {
         {
             let inst = self.osd.instance.borrow();
             let Some(i) = inst.as_ref() else { return };
-            let (volume, muted) = self.audio_level();
-            let _ = i.set_property("value", Value::Number(volume));
+            let _ = i.set_property("value", Value::Number(value));
             let _ = i.set_property("muted", Value::Bool(muted));
+            // Older overrides may not have `kind`; they just keep showing a volume icon.
+            let _ = i.set_property("kind", Value::String(match kind {
+                OsdKind::Volume => "volume",
+                OsdKind::Brightness => "brightness",
+            }.into()));
             let st = self.state.borrow();
             theme_binding::apply(i, &st.theme, st.accent);
             i.window().set_position(slint::PhysicalPosition::new(rect.left, rect.top));

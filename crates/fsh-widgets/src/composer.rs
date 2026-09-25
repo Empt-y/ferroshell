@@ -53,7 +53,7 @@ pub const PANEL_COMPONENT: &str = "Panel";
 pub const POPUP_COMPONENT: &str = "PopupWindow";
 /// The globals in `@ferroshell/services.slint`, exported from every panel and popup so
 /// the shell can set them.
-pub const SERVICE_GLOBALS: &str = "Audio, Media, Network, Bluetooth";
+pub const SERVICE_GLOBALS: &str = "Audio, Media, Network, Bluetooth, Power";
 
 impl Composer {
     pub fn new(layout: Layout) -> Self {
@@ -402,6 +402,10 @@ mod tests {
         let (composer, _, _) = setup("popups");
         let def = composer.compile_library("popups.slint", "PreviewPopup").unwrap();
         assert!(def.globals().any(|g| g == "Theme"));
+        let def = composer.compile_library("osd.slint", "OsdWindow").unwrap();
+        for p in ["value", "muted", "kind"] {
+            assert!(def.properties().any(|(name, _)| name == p), "OsdWindow lacks `{p}`");
+        }
         let def = composer.compile_library("launcher.slint", "LauncherWindow").unwrap();
         assert!(def.globals().any(|g| g == "Launcher"));
         assert!(def.functions().any(|f| f == "focus-search"));

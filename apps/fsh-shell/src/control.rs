@@ -83,6 +83,14 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
                 json!({"ok": true})
             })
         }
+        // Show the brightness OSD as if the screen brightness changed: {"level": 0-100}.
+        "debug.brightness_osd" => {
+            let level = params.get("level").and_then(Value::as_u64).unwrap_or(50).min(100) as f64;
+            on_ui(move || {
+                app::with(|a| a.show_osd_level(crate::osd::OsdKind::Brightness, level, false));
+                json!({"ok": true})
+            })
+        }
         "debug.hang" => {
             // Blocks the UI thread to test hang detection.
             let secs = params.get("secs").and_then(Value::as_u64).unwrap_or(30);

@@ -63,6 +63,12 @@ fn main() -> ExitCode {
 }
 
 fn run() -> anyhow::Result<i32> {
+    // COM on the UI thread (the same apartment winit/OLE use later) for the process's
+    // lifetime, and process-wide COM security before any other thread touches COM.
+    let _com = fsh_win::com::ComGuard::new();
+    if let Err(e) = fsh_win::com::init_process_security() {
+        tracing::warn!("COM security not set (brightness control may be unavailable): {e}");
+    }
     let args = parse_args()?;
     let Some(_instance) = process::SingleInstance::acquire("ferroshell-shell")? else {
         anyhow::bail!("fsh-shell is already running");

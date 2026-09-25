@@ -5,6 +5,7 @@ pub mod audio;
 pub mod bluetooth;
 pub mod calendar;
 pub mod network;
+pub mod power;
 pub mod geometry;
 pub mod launcher;
 pub mod tasks;

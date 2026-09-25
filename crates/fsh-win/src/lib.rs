@@ -3,6 +3,7 @@
 
 pub mod appbar;
 pub mod audio;
+pub mod brightness;
 pub mod bluetooth;
 pub mod appsfolder;
 pub mod clipboard;
@@ -18,6 +19,7 @@ pub mod menu;
 pub mod monitor;
 pub mod network;
 pub mod panel;
+pub mod power;
 pub mod process;
 pub mod session;
 pub mod shellhook;

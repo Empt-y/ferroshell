@@ -22,6 +22,18 @@ impl ComGuard {
     }
 }
 
+/// Process-wide COM security for outgoing calls: authenticate, and let servers impersonate
+/// us. WMI's `root\wmi` providers (e.g. screen brightness) refuse calls at COM's default
+/// "identify" level, and `CoSetProxyBlanket` on individual proxies isn't enough.
+///
+/// Call once, early in `main`, on a thread with COM initialised and before any other COM
+/// use in the process (otherwise it fails with `RPC_E_TOO_LATE`). Keep that thread's
+/// [`ComGuard`] alive for the process's lifetime.
+pub fn init_process_security() -> windows::core::Result<()> {
+    use windows::Win32::System::Com::{CoInitializeSecurity, EOAC_NONE, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE};
+    unsafe { CoInitializeSecurity(None, -1, None, None, RPC_C_AUTHN_LEVEL_DEFAULT, RPC_C_IMP_LEVEL_IMPERSONATE, None, EOAC_NONE, None) }
+}
+
 impl Default for ComGuard {
     fn default() -> Self {
         Self::new()

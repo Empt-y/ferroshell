@@ -1,0 +1,156 @@
+import { Shell, Theme } from "@ferroshell/api.slint";
+import { Power, Display } from "@ferroshell/services.slint";
+import { Label, DimLabel, Heading, ListRow, Slider, BatteryIcon, SunIcon } from "@ferroshell/controls.slint";
+
+// One segment of the power-mode selector.
+component ModeButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    callback clicked();
+    height: 30px;
+    horizontal-stretch: 1;
+    border-radius: Theme.radius;
+    background: root.selected ? Theme.accent
+        : !root.enabled ? transparent
+        : touch.pressed ? Theme.pressed
+        : touch.has-hover ? Theme.hover
+        : Theme.highlight.with-alpha(0.4);
+    opacity: root.enabled ? 1 : 0.5;
+    Text {
+        text: root.text;
+        color: root.selected ? #ffffff : Theme.foreground;
+        font-size: Theme.font-size * 0.9;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    touch := TouchArea {
+        enabled: root.enabled && !root.selected;
+        clicked => { root.clicked(); }
+    }
+}
+
+component BrightnessRow inherits VerticalLayout {
+    in property <Display> display;
+    in property <bool> show-name;
+    spacing: 2px;
+    if root.show-name: DimLabel { text: root.display.name; }
+    HorizontalLayout {
+        spacing: 10px;
+        SunIcon { y: (parent.height - self.height) / 2; }
+        Slider {
+            value: root.display.brightness;
+            changed(v) => { Power.set-brightness(root.display.id, v); }
+        }
+        Label {
+            width: 38px;
+            text: round(root.display.brightness) + "%";
+            horizontal-alignment: right;
+        }
+    }
+}
+
+export component Popup inherits Rectangle {
+    in property <string> instance-id;
+
+    if !Power.available: Label {
+        text: "Power information is unavailable.";
+        horizontal-alignment: center;
+    }
+
+    if Power.available: Flickable {
+        viewport-height: content.preferred-height;
+        content := VerticalLayout {
+            padding: 14px;
+            spacing: 12px;
+            alignment: start;
+
+            if Power.has-battery: HorizontalLayout {
+                spacing: 14px;
+                BatteryIcon {
+                    y: (parent.height - self.height) / 2;
+                    width: 44px;
+                    height: 22px;
+                    percent: Power.percent;
+                    charging: Power.charging;
+                }
+                VerticalLayout {
+                    alignment: center;
+                    horizontal-stretch: 1;
+                    Text {
+                        text: Power.percent + "%";
+                        color: Theme.foreground;
+                        font-size: Theme.font-size * 2;
+                        font-weight: 300;
+                    }
+                    DimLabel { text: Power.status; }
+                    if Power.health >= 0: DimLabel { text: "Battery health " + Power.health + "%"; }
+                }
+            }
+
+            if Power.error != "": Text {
+                text: Power.error;
+                color: Theme.error;
+                font-size: Theme.font-size * 0.9;
+                wrap: word-wrap;
+            }
+
+            VerticalLayout {
+                spacing: 6px;
+                Heading { text: "Power mode"; }
+                HorizontalLayout {
+                    spacing: 4px;
+                    ModeButton {
+                        text: "Efficiency";
+                        enabled: Power.mode-available;
+                        selected: Power.power-mode == "efficiency";
+                        clicked => { Power.set-power-mode("efficiency"); }
+                    }
+                    ModeButton {
+                        text: "Balanced";
+                        enabled: Power.mode-available;
+                        selected: Power.power-mode == "balanced";
+                        clicked => { Power.set-power-mode("balanced"); }
+                    }
+                    ModeButton {
+                        text: "Performance";
+                        enabled: Power.mode-available;
+                        selected: Power.power-mode == "performance";
+                        clicked => { Power.set-power-mode("performance"); }
+                    }
+                }
+                if !Power.mode-available: DimLabel {
+                    text: "Power mode needs Windows' Balanced power plan.";
+                    wrap: word-wrap;
+                }
+            }
+
+            if Power.displays.length > 0: VerticalLayout {
+                spacing: 6px;
+                Heading { text: "Brightness"; }
+                for d in Power.displays: BrightnessRow {
+                    display: d;
+                    show-name: Power.displays.length > 1;
+                }
+            }
+
+            if Power.has-battery: ListRow {
+                clicked => { Shell.invoke("launch", "ms-settings:batterysaver"); Shell.invoke("close-popup", ""); }
+                Label {
+                    horizontal-stretch: 1;
+                    text: "Energy saver";
+                }
+                DimLabel {
+                    text: Power.energy-saver == "on" ? "On" : Power.energy-saver == "off" ? "Off" : "On battery only";
+                    vertical-alignment: center;
+                }
+            }
+
+            ListRow {
+                clicked => { Shell.invoke("launch", "ms-settings:powersleep"); Shell.invoke("close-popup", ""); }
+                Label { text: "Power & battery settings…"; color: Theme.accent; }
+            }
+        }
+    }
+}

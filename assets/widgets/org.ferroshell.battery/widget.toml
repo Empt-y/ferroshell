@@ -1,0 +1,22 @@
+id = "org.ferroshell.battery"
+name = "Battery & Brightness"
+description = "Battery level, power mode and screen brightness. Hidden on PCs with neither a battery nor adjustable screens."
+version = "1.0.0"
+api = 1
+services = ["power"]
+
+[popup]
+file = "popup.slint"
+width = 340
+height = 380
+
+[config.show-percentage]
+type = "bool"
+default = true
+label = "Show the percentage on the panel"
+
+[config.hide-without-battery]
+type = "bool"
+default = true
+label = "Hide on PCs without a battery"
+description = "Otherwise a brightness icon stays on the panel for monitors with DDC/CI."
