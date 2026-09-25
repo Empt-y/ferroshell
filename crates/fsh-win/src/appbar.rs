@@ -82,8 +82,27 @@ fn work_area(monitor: Rect, reserved: &[(isize, Rect, Edge, i32)]) -> Rect {
     r
 }
 
+/// The work area Windows currently has for the monitor at `monitor`.
+fn current_work_area(monitor: Rect) -> Option<Rect> {
+    use windows::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONULL, MONITORINFO, MonitorFromRect};
+    unsafe {
+        let raw = monitor.to_raw();
+        let m = MonitorFromRect(&raw, MONITOR_DEFAULTTONULL);
+        if m.is_invalid() {
+            return None;
+        }
+        let mut info = MONITORINFO { cbSize: size_of::<MONITORINFO>() as u32, ..Default::default() };
+        GetMonitorInfoW(m, &mut info).as_bool().then(|| Rect::from_raw(info.rcWork))
+    }
+}
+
 fn apply_work_area(monitor: Rect) {
     let area = RESERVED.with(|r| work_area(monitor, &r.borrow()));
+    // Setting the work area makes Windows resize every maximised window on the monitor,
+    // which knocks a full-screen game out of full screen. Only ever change it for real.
+    if current_work_area(monitor) == Some(area) {
+        return;
+    }
     let mut raw = area.to_raw();
     unsafe {
         // Don't send the change synchronously: a hung window would hang us. Windows moves

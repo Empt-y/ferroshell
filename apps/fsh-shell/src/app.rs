@@ -26,6 +26,23 @@ thread_local! {
 
 /// Run `f` with the app, if it exists. Never holds a borrow of the global while `f` runs,
 /// so callbacks may re-enter safely.
+/// Showing one of our windows can make it the foreground window, which takes the keyboard
+/// from what the user is doing and knocks full-screen games out of full screen. Call with
+/// the foreground from before showing something the user didn't ask for: if one of our
+/// windows took it while appearing, it's handed straight back.
+pub(crate) fn keep_foreground(previous: Option<fsh_win::Hwnd>) {
+    let Some(prev) = previous else { return };
+    for ms in [30u64, 120, 300] {
+        slint::Timer::single_shot(Duration::from_millis(ms), move || {
+            let Some(fg) = fsh_win::winfo::foreground() else { return };
+            if fg != prev && fsh_win::winfo::pid(fg) == std::process::id() && prev.exists() {
+                tracing::debug!("giving the foreground back");
+                fsh_win::winops::activate(prev);
+            }
+        });
+    }
+}
+
 pub fn with<R>(f: impl FnOnce(&App) -> R) -> Option<R> {
     let app = APP.with(|a| a.borrow().clone());
     app.map(|a| f(&a))
@@ -113,6 +130,8 @@ pub struct App {
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
     relayout_pending: Cell<bool>,
+    /// A display change arrived while a full-screen app was up; handle it once it's gone.
+    display_change_deferred: Cell<bool>,
     last_relayout: Cell<Option<Instant>>,
     reload_pending: Cell<Pending>,
     fingerprints: Cell<(u64, u64)>,
@@ -181,6 +200,7 @@ impl App {
             keyhook: RefCell::new(None),
             keyhook_features: Cell::new((false, false)),
             relayout_pending: Cell::new(false),
+            display_change_deferred: Cell::new(false),
             last_relayout: Cell::new(None),
             reload_pending: Cell::new(Pending::None),
             fingerprints: Cell::new((0, 0)),
@@ -398,6 +418,35 @@ impl App {
 
     /// Monitors moved or changed resolution/DPI: re-place panels; rebuild if the set of
     /// panels that should exist changed.
+    /// Whether a full-screen app (a game, a video) is up on any panel's monitor.
+    pub(crate) fn fullscreen_app_active(&self) -> bool {
+        self.state.borrow().panels.iter().any(|p| p.fullscreen_app.get())
+    }
+
+    /// Monitors or resolution changed. Full-screen games switch display modes as they gain
+    /// and lose focus; touching windows or the work area then knocks them out of full
+    /// screen (and round it goes), so wait until the game is gone, as Explorer does.
+    fn on_display_change(&self) {
+        for p in &self.state.borrow().panels {
+            p.update_fullscreen();
+        }
+        if self.fullscreen_app_active() {
+            tracing::info!("display change while a full-screen app is up; handling it afterwards");
+            self.display_change_deferred.set(true);
+            return;
+        }
+        self.display_change_deferred.set(false);
+        self.relayout();
+        self.build_desktop_surfaces(false);
+    }
+
+    /// Called when full-screen state may have changed: catch up on a deferred display change.
+    pub(crate) fn after_fullscreen_change(&self) {
+        if self.display_change_deferred.get() && !self.fullscreen_app_active() {
+            self.on_display_change();
+        }
+    }
+
     fn relayout(&self) {
         let monitors = monitor::monitors();
         let needs_rebuild = {
@@ -784,10 +833,7 @@ fn on_system_message(_hwnd: fsh_win::Hwnd, msg: u32, _wparam: usize, lparam: isi
             tracing::info!("display configuration changed");
             // Let Windows settle (several messages arrive while monitors reconfigure).
             slint::Timer::single_shot(Duration::from_millis(500), || {
-                with(|a| {
-                    a.relayout();
-                    a.build_desktop_surfaces(false);
-                });
+                with(|a| a.on_display_change());
             });
         }
         window::WM_SETTINGCHANGE if _wparam == fsh_win::lockscreen::SPI_SETDESKWALLPAPER => {

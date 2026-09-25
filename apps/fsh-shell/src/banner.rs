@@ -68,9 +68,12 @@ impl App {
     }
 
     pub(crate) fn show_banner(&self, toast: &Toast, more: usize, icon: Option<Image>, seconds: u64) {
-        if !self.ensure_banner() {
+        // No pop-ups over a full-screen game or video (the notification is still in the
+        // list), as Windows does.
+        if self.fullscreen_app_active() || !self.ensure_banner() {
             return;
         }
+        let foreground = fsh_win::winfo::foreground();
         let rect = self.banner_rect();
         {
             let inst = self.banner.instance.borrow();
@@ -93,6 +96,7 @@ impl App {
                 return;
             }
         }
+        crate::app::keep_foreground(foreground);
         self.banner.showing.set(Some(toast.id));
         if self.banner.hwnd.get().is_none() {
             self.banner.attach_timer.start(slint::TimerMode::Repeated, Duration::from_millis(16), move || {

@@ -30,6 +30,7 @@ impl App {
         for p in &self.state.borrow().panels {
             p.update_fullscreen();
         }
+        self.after_fullscreen_change();
         self.refresh_tasks();
     }
 

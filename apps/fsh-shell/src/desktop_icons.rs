@@ -160,6 +160,12 @@ impl App {
                 return;
             }
         }
+        // Never rebuild under a full-screen app (a new window would take its focus).
+        if !force && self.fullscreen_app_active() {
+            return;
+        }
+        // Showing a window can make it the foreground one: give it back afterwards.
+        let foreground = fsh_win::winfo::foreground();
         let old: Vec<Surface> = d.surfaces.borrow_mut().drain(..).collect();
         for s in &old {
             if let (Some(h), Some(desk)) = (s.hwnd.get(), self.desktop.window.borrow().as_ref()) {
@@ -241,6 +247,7 @@ impl App {
         }
         self.apply_desktop_wallpaper();
         self.place_desktop_items();
+        crate::app::keep_foreground(foreground);
     }
 
     fn desktop_hwnd(&self) -> Option<Hwnd> {

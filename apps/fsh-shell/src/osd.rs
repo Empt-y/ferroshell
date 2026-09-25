@@ -109,9 +109,11 @@ impl App {
 
     /// Show the OSD with a level (0–100) for 1.5 s.
     pub(crate) fn show_osd_level(&self, kind: OsdKind, value: f64, muted: bool) {
-        if !self.ensure_osd() {
+        // Over a full-screen game or video, stay out of the way (the level still changes).
+        if self.fullscreen_app_active() || !self.ensure_osd() {
             return;
         }
+        let foreground = fsh_win::winfo::foreground();
         let rect = self.osd_rect();
         {
             let inst = self.osd.instance.borrow();
@@ -139,6 +141,7 @@ impl App {
         } else if let Some(h) = self.osd.hwnd.get() {
             win_panel::set_rect(h, rect);
         }
+        crate::app::keep_foreground(foreground);
         self.osd.hide_timer.start(slint::TimerMode::SingleShot, SHOW_FOR, || {
             with(|app| app.hide_osd());
         });
