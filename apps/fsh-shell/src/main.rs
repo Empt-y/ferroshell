@@ -18,6 +18,7 @@ mod plugins;
 mod popup;
 mod scripts;
 mod services;
+mod shellkeys;
 mod taskbar;
 mod thumbs;
 mod timefmt;

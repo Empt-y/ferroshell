@@ -11,6 +11,7 @@ pub mod com;
 pub mod console;
 pub mod crash;
 pub mod desktop;
+pub mod env;
 pub mod hotkey;
 pub mod icon;
 pub mod identity;

@@ -69,6 +69,11 @@ impl PanelTasks {
         self.widget_index = from.widget_index;
     }
 
+    /// The id of the nth task as shown (0-based).
+    pub fn nth_id(&self, n: usize) -> Option<String> {
+        self.views.borrow().get(n).map(|(v, _)| v.id.clone())
+    }
+
     pub fn find(&self, id: &str) -> Option<TaskView> {
         self.views.borrow().iter().find(|(v, _)| v.id == id).map(|(v, _)| v.clone())
     }

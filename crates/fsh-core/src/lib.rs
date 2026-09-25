@@ -10,6 +10,7 @@ pub mod power;
 pub mod session;
 pub mod startup;
 pub mod geometry;
+pub mod hotkeys;
 pub mod launcher;
 pub mod tasks;
 pub mod tray;

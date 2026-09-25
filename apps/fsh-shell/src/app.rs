@@ -105,6 +105,7 @@ pub struct App {
     pub(crate) osd: crate::osd::Osd,
     pub(crate) banner: crate::banner::Banner,
     pub(crate) desktop: crate::desktop::Desktop,
+    pub(crate) shell_keys: crate::shellkeys::ShellKeys,
     app_indexer: crate::apps::AppIndexer,
     keyhook: RefCell<Option<fsh_win::keyhook::KeyHook>>,
     keyhook_features: Cell<(bool, bool)>,
@@ -165,6 +166,7 @@ impl App {
             osd: crate::osd::Osd::default(),
             banner: crate::banner::Banner::default(),
             desktop: crate::desktop::Desktop::default(),
+            shell_keys: crate::shellkeys::ShellKeys::default(),
             app_indexer: crate::apps::AppIndexer::spawn(|u| {
                 let _ = slint::invoke_from_event_loop(move || {
                     with(|a| a.on_apps_update(u));
@@ -184,8 +186,10 @@ impl App {
         APP.with(|a| *a.borrow_mut() = Some(app.clone()));
         app.launcher.state.borrow_mut().history = crate::launcher::load_history();
 
+        app.snapshot_environment();
         if replace {
             app.start_desktop();
+            app.start_shell_keys();
         }
         app.load();
         app.rebuild_panels();
@@ -680,6 +684,7 @@ impl App {
             "safe_mode": self.safe_mode,
             "replace": self.replace,
             "desktop": self.desktop_state(),
+            "shortcuts": self.shell_keys_state(),
             "identity": fsh_win::identity::package_full_name(),
             "config_error": st.config.error(),
             "config_from_last_good": matches!(st.config, LoadOutcome::Fallback { from_last_good: true, .. }),
@@ -762,11 +767,22 @@ fn on_system_message(_hwnd: fsh_win::Hwnd, msg: u32, _wparam: usize, lparam: isi
                 with(|a| a.relayout());
             });
         }
-        window::WM_SETTINGCHANGE => {
-            if window::setting_change_area(lparam).as_deref() == Some("ImmersiveColorSet") {
+        window::WM_SETTINGCHANGE => match window::setting_change_area(lparam).as_deref() {
+            Some("ImmersiveColorSet") => {
                 slint::Timer::single_shot(Duration::from_millis(200), || {
                     with(|a| a.refresh_theme());
                 });
+            }
+            Some("Environment") => {
+                slint::Timer::single_shot(Duration::ZERO, || {
+                    with(|a| a.refresh_environment());
+                });
+            }
+            _ => {}
+        },
+        fsh_win::hotkey::WM_HOTKEY => {
+            if !with(|a| a.on_hotkey_message(_wparam as i32)).unwrap_or(false) {
+                return None;
             }
         }
         fsh_win::power::WM_POWERBROADCAST if _wparam == fsh_win::power::PBT_POWERSETTINGCHANGE as usize => {
