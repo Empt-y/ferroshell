@@ -16,7 +16,7 @@ use fsh_win::icon::RgbaImage;
 use fsh_win::{Hwnd, Monitor};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value as Json, json};
-use slint::{ComponentHandle as _, Image, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel};
+use slint::{ComponentHandle as _, Image, Model as _, ModelRc, Rgba8Pixel, SharedPixelBuffer, VecModel};
 use slint_interpreter::{ComponentInstance, Struct, Value};
 
 use crate::app::{App, with};
@@ -489,7 +489,19 @@ impl App {
                     ])
                 })
                 .collect();
-            s.model.set_vec(rows);
+            // Update rows where they are: replacing the whole list would destroy the icon
+            // that was just clicked, and with it the second click of a double-click.
+            let have = s.model.row_count();
+            for (k, row) in rows.iter().enumerate() {
+                if k < have {
+                    s.model.set_row_data(k, row.clone());
+                } else {
+                    s.model.push(row.clone());
+                }
+            }
+            for k in (rows.len()..have).rev() {
+                s.model.remove(k);
+            }
         }
     }
 

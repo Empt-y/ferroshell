@@ -51,6 +51,9 @@ pub struct Services {
     network_state: RefCell<network::Snapshot>,
     bluetooth_state: RefCell<bluetooth::Snapshot>,
     power_state: RefCell<power::Snapshot>,
+    /// `debug.battery`: show this (percent, charging, on mains) instead of the real battery,
+    /// to look at every state of the icon on a desktop that's always plugged in.
+    pub(crate) power_override: std::cell::Cell<Option<(u8, bool, bool)>>,
     art: RefCell<Option<Image>>,
     icons: RefCell<HashMap<String, Image>>,
     // Shared by every instance and updated in place, so a slider being dragged in a list
@@ -534,6 +537,11 @@ impl App {
         set("error", Value::String(st.error.as_str().into()));
     }
 
+    pub(crate) fn set_power_override(&self, over: Option<(u8, bool, bool)>) {
+        self.services.power_override.set(over);
+        self.for_each_instance(&|i| self.apply_power(i));
+    }
+
     fn apply_power(&self, i: &ComponentInstance) {
         use fsh_win::power::{EnergySaver, PowerMode};
         let st = self.services.power_state.borrow();
@@ -541,12 +549,16 @@ impl App {
             let _ = i.set_global_property("Power", name, v);
         };
         set("available", Value::Bool(st.available));
-        set("has-battery", Value::Bool(st.has_battery));
-        set("percent", Value::Number(f64::from(st.percent)));
-        set("level", Value::Number(f64::from(fsh_core::power::icon_level(st.percent))));
-        set("charging", Value::Bool(st.charging));
-        set("on-ac", Value::Bool(st.on_ac));
-        set("status", Value::String(st.status.as_str().into()));
+        let (percent, charging, on_ac, status) = match self.services.power_override.get() {
+            Some((p, c, a)) => (p, c, a, fsh_core::power::status_line(p, a, c, None, None)),
+            None => (st.percent, st.charging, st.on_ac, st.status.clone()),
+        };
+        set("has-battery", Value::Bool(st.has_battery || self.services.power_override.get().is_some()));
+        set("percent", Value::Number(f64::from(percent)));
+        set("level", Value::Number(f64::from(fsh_core::power::icon_level(percent))));
+        set("charging", Value::Bool(charging));
+        set("on-ac", Value::Bool(on_ac));
+        set("status", Value::String(status.as_str().into()));
         set("health", Value::Number(st.health.map_or(-1.0, f64::from)));
         set(
             "power-mode",

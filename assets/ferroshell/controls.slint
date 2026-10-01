@@ -109,9 +109,13 @@ export component PanelButton inherits Rectangle {
     }
 
     // Attention: a pulsing bar along the screen edge.
-    if root.attention: Rectangle {
+    if root.attention: attention-bar := Rectangle {
         property <bool> pulse;
-        init => { self.pulse = true; }
+        Timer {
+            interval: 750ms;
+            running: Theme.animation-speed > 0;
+            triggered => { attention-bar.pulse = !attention-bar.pulse; }
+        }
         background: Theme.attention;
         border-radius: 1px;
         height: Shell.vertical ? parent.height - 8px : 3px;
@@ -120,8 +124,8 @@ export component PanelButton inherits Rectangle {
         y: Shell.edge == "top" ? 0 : Shell.edge == "bottom" ? parent.height - self.height : 4px;
         drop-shadow-blur: 6px;
         drop-shadow-color: Theme.attention.with-alpha(0.6);
-        opacity: self.pulse && Theme.animation-speed > 0 ? 0.35 : 1;
-        animate opacity { duration: 700ms; iteration-count: -1; direction: alternate; easing: ease-in-out; }
+        opacity: self.pulse ? 0.35 : 1;
+        animate opacity { duration: 650ms; easing: ease-in-out; }
     }
 
     touch := TouchArea {
@@ -565,11 +569,30 @@ export component SunIcon inherits Rectangle {
 
 // A horizontal battery filled to `percent` (0-100), with a bolt while `charging`. Turns the
 // theme's error colour when nearly empty and not charging.
+// A battery that tells its three states apart:
+//   on battery          a plain battery (pulsing red when nearly empty)
+//   charging            a green fill with a light sweeping across it, and a pulsing bolt
+//   plugged in, idle    a steady plug (full, or held below full by a charge limit)
+// All motion stops when the theme's `animation-speed` is 0.
 export component BatteryIcon inherits Rectangle {
     in property <float> percent: 100;
     in property <bool> charging;
+    // On mains power (charging or not). With `charging` false this is "plugged in, idle".
+    in property <bool> on-ac;
     in property <color> tint: Theme.foreground;
-    property <bool> low: root.percent <= 10 && !root.charging;
+    property <bool> low: root.percent <= 10 && !root.on-ac;
+    property <bool> plugged-idle: root.on-ac && !root.charging;
+    property <color> fill: root.low ? Theme.error : root.charging ? Theme.charging : root.tint;
+    property <bool> moving: Theme.animation-speed > 0;
+    // Flips every 700 ms while something is animating; each flip is a normal animation. (A
+    // flag set once with an endless animation on it doesn't reliably start, and keeps
+    // bouncing between its last two values when its target changes.)
+    property <bool> beat;
+    Timer {
+        interval: 700ms;
+        running: root.moving && (root.low || root.charging);
+        triggered => { root.beat = !root.beat; }
+    }
     width: 22px;
     height: 12px;
     // Body.
@@ -579,15 +602,26 @@ export component BatteryIcon inherits Rectangle {
         height: parent.height;
         border-radius: 2.5px;
         border-width: 1.2px;
-        border-color: root.low ? Theme.error : root.tint;
-        Rectangle {
+        border-color: root.fill;
+        animate border-color { duration: Theme.normal; }
+        fillbar := Rectangle {
             x: 2px;
             y: 2px;
             height: parent.height - 4px;
             width: max(0px, (parent.width - 4px) * min(100, root.percent) / 100);
             border-radius: 1px;
-            background: root.low ? Theme.error : root.tint;
-            animate background { duration: Theme.fast; }
+            background: root.fill;
+            clip: true;
+            animate background { duration: Theme.normal; }
+            animate width { duration: Theme.slow; easing: ease-out; }
+            // Charging: a soft light travels across the fill, over and over.
+            if root.charging && root.moving: Rectangle {
+                width: 6px;
+                height: parent.height;
+                x: root.beat ? parent.width : -self.width;
+                background: @linear-gradient(90deg, #ffffff00 0%, #ffffffa0 50%, #ffffff00 100%);
+                animate x { duration: 650ms; easing: ease-in-out; }
+            }
         }
     }
     // Terminal nub.
@@ -597,19 +631,48 @@ export component BatteryIcon inherits Rectangle {
         width: 2px;
         height: parent.height * 0.45;
         border-radius: 1px;
-        background: root.low ? Theme.error : root.tint;
-        animate background { duration: Theme.fast; }
+        background: root.fill;
+        animate background { duration: Theme.normal; }
     }
+    // Nearly empty on battery: the battery breathes. A fading cover that exists only while
+    // low, with its own start: an endless animation on a property whose target changes
+    // would keep bouncing between the old and new value after the state changes.
+    if root.low && root.moving: Rectangle {
+        width: parent.width;
+        height: parent.height;
+        border-radius: 2.5px;
+        background: Theme.panel-background.with-alpha(1);
+        opacity: root.beat ? 0.6 : 0;
+        animate opacity { duration: 600ms; easing: ease-in-out; }
+    }
+    // Charging: a bolt that pulses.
     if root.charging: Path {
         x: (body.width - self.width) / 2;
         width: 10px;
         height: parent.height;
         viewbox-width: 10;
         viewbox-height: 14;
-        fill: Theme.accent;
+        fill: Theme.accent-foreground;
         stroke: Theme.panel-background;
         stroke-width: 1px;
         commands: "M6 0 L1 8 L4.5 8 L3.5 14 L9 5.5 L5.5 5.5 Z";
+        opacity: root.moving && root.beat ? 0.45 : 1;
+        animate opacity { duration: 600ms; easing: ease-in-out; }
+    }
+    // Plugged in but not charging: a plug, steady.
+    if root.plugged-idle: Path {
+        x: (body.width - self.width) / 2;
+        width: 9px;
+        height: parent.height;
+        viewbox-width: 10;
+        viewbox-height: 14;
+        fill: transparent;
+        // The panel's own colour, opaque: it reads against the fill on dark and light themes.
+        stroke: Theme.panel-background.with-alpha(1);
+        stroke-width: 1.7px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M3 0.8 V4 M7 0.8 V4 M1.2 4 H8.8 V6.8 A3.8 3.8 0 0 1 1.2 6.8 Z M5 10.6 V13.2";
     }
 }
 

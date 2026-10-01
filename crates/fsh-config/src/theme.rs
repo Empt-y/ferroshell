@@ -26,6 +26,7 @@ pub const COLOR_TOKENS: &[(&str, &str, &str)] = &[
     ("popup-border", "#ffffff1a", "Border around popups, the launcher and banners"),
     ("shadow", "#00000066", "Drop shadows under popups and lifted items"),
     ("glow", "#3daee980", "Glow of the `glow` hover effect and indicator style"),
+    ("charging", "#46c46d", "The battery while it's charging"),
 ];
 
 /// Every metric token (logical pixels), with its default.

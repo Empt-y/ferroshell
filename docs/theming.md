@@ -70,6 +70,7 @@ parse at all falls back to the defaults.
 | `popup-border` | `#ffffff1a` | border of popups, the launcher, banners and the OSD |
 | `shadow` | `#00000066` | drop shadows (slider knobs, toggles) |
 | `glow` | `#3daee980` | the `glow` hover effect and indicator style |
+| `charging` | `#46c46d` | the battery icon while charging (green fill with a sweeping light) |
 
 | Metric | Default |
 |---|---|

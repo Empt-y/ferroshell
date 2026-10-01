@@ -63,6 +63,18 @@ fn handle(method: &str, params: Value) -> Result<Value, RpcError> {
         }),
         // Desktop icons in a normal window, to try them alongside Explorer (toggles).
         "debug.desktop_preview" => on_ui(|| json!({ "shown": app::with(|a| a.toggle_desktop_preview()).unwrap_or(false) })),
+        // Show a made-up battery state: {"percent": 0-100, "charging": bool, "on_ac": bool};
+        // `{}` goes back to the real battery. For looking at the icon's three states.
+        "debug.battery" => {
+            let over = params.get("percent").and_then(Value::as_u64).map(|p| {
+                let flag = |k: &str| params.get(k).and_then(Value::as_bool).unwrap_or(false);
+                (p.min(100) as u8, flag("charging"), flag("on_ac") || flag("charging"))
+            });
+            on_ui(move || {
+                app::with(|a| a.set_power_override(over));
+                json!({"ok": true})
+            })
+        }
         "shutdown" | "quit" => exit(exit_codes::QUIT),
         "restart" => exit(exit_codes::RESTART),
         "debug.crash" => {
